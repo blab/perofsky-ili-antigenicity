@@ -1,3 +1,4 @@
+<<<<<<< 56267882fe4273f9ff55c2ea9c44d00f68e3e58f
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -106,6 +107,44 @@ venv.bak/
 # Snakemake directory
 .snakemake/
 
-# Data files
-auspice/*.json
-results/*
+# Sensitive environment variables
+environment*
+
+# Snakemake state dir
+/.snakemake
+
+# Local config overrides
+/config_local.yaml
+
+# For Python #
+##############
+*.pyc
+.tox/
+.cache/
+
+# Compiled source #
+###################
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+
+# OS generated files #
+######################
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+ehthumbs.db
+Thumbs.db
+
+# Files created by the pipeline, which we want to keep out of git
+# (or at least out of _this_ git repo).
+data/
+results/
+auspice/
+build/
