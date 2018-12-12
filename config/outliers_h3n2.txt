@@ -12,6 +12,7 @@ A/Cambodia/NHRCC00007/2009
 A/Cambodia/NHRCC00008/2009
 A/Cambodia/NHRCC00010/2009
 A/Cambodia/NHRCC00011/2009
+A/Canterbury/87/2000
 A/Catalonia/NSVH100533399/2017
 A/Catalonia/NSVH100560486/2017
 A/Chile/8266/2003
@@ -107,6 +108,7 @@ A/Indiana/113/2012
 A/Indiana/115/2012
 A/Indiana/123/2012
 A/Indiana/125/2012
+A/Indiana/127/2012
 A/Indiana/13/2012
 A/Indiana/13/2012_egg
 A/Indiana/132/2012
@@ -140,10 +142,12 @@ A/Indiana/8/2011
 A/Indiana/8/2012
 A/Indiana/8/2013
 A/Indiana/9/2012
+A/Indiana/9/2013
 A/Indiana/93/2012
 A/Iowa/16/2009
 A/Iowa/4/2013
 A/Iowa/7/2011
+A/Iowa/8/2011_egg
 A/Iowa/9/2011
 A/Iran/140/2014
 A/Iran/227/2014
