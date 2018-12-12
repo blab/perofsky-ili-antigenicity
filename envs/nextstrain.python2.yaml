@@ -1,0 +1,8 @@
+name: nextstrain-python2
+channels:
+- defaults
+dependencies:
+- biopython
+- python=2.*
+- pip:
+  - rethinkdb

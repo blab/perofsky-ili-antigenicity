@@ -1,0 +1,17 @@
+name: nextstrain
+channels:
+- bioconda
+- conda-forge
+- defaults
+dependencies:
+- cvxopt
+- fasttree
+- iqtree
+- mafft
+- pandas
+- python=3.6*
+- raxml
+- snakemake
+- pip:
+  - git+https://github.com/nextstrain/augur@fa19fcf
+  - rethinkdb

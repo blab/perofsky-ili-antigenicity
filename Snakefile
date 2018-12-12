@@ -2,10 +2,13 @@ from datetime import date
 import pandas as pd
 from treetime.utils import numeric_date
 
+configfile: "config.json"
+localrules: download_sequences, download_titers
+
 path_to_fauna = '../fauna'
-segments = ['ha', 'na']
+segments = ['ha']
 lineages = ['h3n2']
-resolutions = ['2y', '3y', '6y', '12y']
+resolutions = ['21y']
 frequency_regions = ['north_america', 'south_america', 'europe', 'china',
                      'southeast_asia', 'japan_korea', 'south_asia', 'africa']
 
@@ -43,7 +46,7 @@ def substitution_rates(w):
     return references[(w.lineage, w.segment)]
 
 def vpm(v):
-    vpm = {'2y':2, '3y':2, '6y':2, '12y':1}
+    vpm = {'2y':2, '3y':2, '6y':2, '12y':1, '21y': 15}
     return vpm[v.resolution] if v.resolution in vpm else 5
 
 #
@@ -92,8 +95,7 @@ def _get_mask_names_by_wildcards(wildcards):
 
 rule all:
     input:
-        auspice_tree = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_tree.json", lineage=lineages, segment=segments, resolution=resolutions),
-        auspice_meta = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_meta.json", lineage=lineages, segment=segments, resolution=resolutions)
+        auspice_tables = expand("auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions),
 
 rule files:
     params:
@@ -111,6 +113,7 @@ rule download_sequences:
         sequences = "data/{lineage}_{segment}.fasta"
     params:
         fasta_fields = "strain virus accession collection_date region country division location passage_category submitting_lab age gender"
+    conda: "envs/nextstrain.python2.yaml"
     shell:
         """
         env PYTHONPATH={path_to_fauna} \
@@ -130,6 +133,7 @@ rule download_titers:
         titers = "data/{lineage}_hi_titers.tsv"
     params:
         fasta_fields = "strain virus accession collection_date region country division location passage_category submitting_lab age gender"
+    conda: "envs/nextstrain.python2.yaml"
     shell:
         """
         env PYTHONPATH={path_to_fauna} \
@@ -151,6 +155,7 @@ rule parse:
         metadata = "results/metadata_{lineage}_{segment}.tsv"
     params:
         fasta_fields =  "strain virus isolate_id date region country division location passage authors age gender"
+    conda: "envs/nextstrain.yaml"
     shell:
         """
         augur parse \
@@ -162,14 +167,17 @@ rule parse:
 
 rule select_strains:
     input:
-        metadata = lambda w:expand("results/metadata_{lineage}_{segment}.tsv", segment=segments, lineage=w.lineage),
+        metadata = expand("results/metadata_{{lineage}}_{segment}.tsv", segment=segments),
         titers = rules.download_titers.output.titers
     output:
         strains = "results/strains_{lineage}_{resolution}.txt",
     params:
+        start_date = config["start_date"],
+        end_date = config["end_date"],
         viruses_per_month = vpm,
         exclude = files.outliers,
         include = files.references
+    conda: "envs/nextstrain.yaml"
     shell:
         """
         python scripts/select_strains.py \
@@ -178,19 +186,19 @@ rule select_strains:
             --exclude {params.exclude} \
             --include {params.include} \
             --lineage {wildcards.lineage} \
-            --resolution {wildcards.resolution} \
+            --time-interval {params.start_date} {params.end_date} \
             --viruses_per_month {params.viruses_per_month} \
             --titers {input.titers} \
             --output {output.strains}
         """
 
-rule filter:
+rule extract_strain_sequences:
     input:
         metadata = rules.parse.output.metadata,
         sequences = 'results/sequences_{lineage}_{segment}.fasta',
         strains = rules.select_strains.output.strains
     output:
-        sequences = 'results/filtered_{lineage}_{segment}_{resolution}.fasta'
+        sequences = 'results/extracted_{lineage}_{segment}_{resolution}.fasta'
     run:
         from Bio import SeqIO
         with open(input.strains) as infile:
@@ -199,6 +207,24 @@ rule filter:
             for seq in SeqIO.parse(input.sequences, 'fasta'):
                 if seq.name in strains:
                     SeqIO.write(seq, outfile, 'fasta')
+
+rule filter:
+    input:
+        sequences = rules.extract_strain_sequences.output.sequences,
+        metadata = rules.parse.output.metadata
+    output:
+        sequences = 'results/filtered_{lineage}_{segment}_{resolution}.fasta'
+    params:
+        min_length = 900
+    conda: "envs/nextstrain.yaml"
+    shell:
+        """
+        augur filter \
+            --sequences {input.sequences} \
+            --metadata {input.metadata} \
+            --min-length {params.min_length} \
+            --output {output}
+        """
 
 rule align:
     message:
@@ -211,6 +237,7 @@ rule align:
         reference = files.reference
     output:
         alignment = "results/aligned_{lineage}_{segment}_{resolution}.fasta"
+    conda: "envs/nextstrain.yaml"
     shell:
         """
         augur align \
@@ -227,6 +254,7 @@ rule tree:
         alignment = rules.align.output.alignment
     output:
         tree = "results/tree-raw_{lineage}_{segment}_{resolution}.nwk"
+    conda: "envs/nextstrain.yaml"
     shell:
         """
         augur tree \
@@ -254,6 +282,7 @@ rule refine:
         coalescent = "const",
         date_inference = "marginal",
         clock_filter_iqd = 4
+    conda: "envs/nextstrain.yaml"
     shell:
         """
         augur refine \
@@ -278,6 +307,7 @@ rule ancestral:
         node_data = "results/nt-muts_{lineage}_{segment}_{resolution}.json"
     params:
         inference = "joint"
+    conda: "envs/nextstrain.yaml"
     shell:
         """
         augur ancestral \
@@ -295,6 +325,7 @@ rule translate:
         reference = files.reference
     output:
         node_data = "results/aa-muts_{lineage}_{segment}_{resolution}.json",
+    conda: "envs/nextstrain.yaml"
     shell:
         """
         augur translate \
@@ -311,6 +342,7 @@ rule reconstruct_translations:
         node_data = "results/aa-muts_{lineage}_{segment}_{resolution}.json",
     output:
         aa_alignment = "results/aa-seq_{lineage}_{segment}_{resolution}_{gene}.fasta"
+    conda: "envs/nextstrain.yaml"
     shell:
         """
         augur reconstruct-sequences \
@@ -333,6 +365,7 @@ rule traits:
         node_data = "results/traits_{lineage}_{segment}_{resolution}.json",
     params:
         columns = "region"
+    conda: "envs/nextstrain.yaml"
     shell:
         """
         augur traits \
@@ -352,6 +385,7 @@ rule titers_sub:
         genes = gene_names
     output:
         titers_model = "results/titers-sub-model_{lineage}_{segment}_{resolution}.json",
+    conda: "envs/nextstrain.yaml"
     shell:
         """
         augur titers sub \
@@ -367,6 +401,7 @@ rule titers_tree:
         tree = rules.refine.output.tree
     output:
         titers_model = "results/titers-tree-model_{lineage}_{segment}_{resolution}.json",
+    conda: "envs/nextstrain.yaml"
     shell:
         """
         augur titers tree \
@@ -386,6 +421,7 @@ rule mutation_frequencies:
         pivots_per_year = pivots_per_year
     output:
         mut_freq = "results/mutation-frequencies_{lineage}_{segment}_{resolution}.json"
+    conda: "envs/nextstrain.yaml"
     shell:
         """
         augur frequencies \
@@ -409,6 +445,7 @@ rule tree_frequencies:
         pivots_per_year = pivots_per_year
     output:
         tree_freq = "results/tree-frequencies_{lineage}_{segment}_{resolution}.json",
+    conda: "envs/nextstrain.yaml"
     shell:
         """
         augur frequencies \
@@ -430,6 +467,7 @@ rule clades:
         clade_definitions = "config/clades_{lineage}_{segment}.tsv"
     output:
         clades = "results/clades_{lineage}_{segment}_{resolution}.json"
+    conda: "envs/nextstrain.yaml"
     shell:
         """
         augur clades \
@@ -450,6 +488,7 @@ rule distances:
         mask_names = _get_mask_names_by_wildcards
     output:
         distances = "results/distances_{lineage}_{segment}_{resolution}.json",
+    conda: "envs/nextstrain.yaml"
     shell:
         """
         augur distance \
@@ -473,6 +512,7 @@ rule lbi:
         names = "lbi"
     output:
         lbi = "results/lbi_{lineage}_{segment}_{resolution}.json"
+    conda: "envs/nextstrain.yaml"
     shell:
         """
         augur lbi \
@@ -492,10 +532,7 @@ def _get_node_data_for_export(wildcards):
         rules.refine.output.node_data,
         rules.ancestral.output.node_data,
         rules.translate.output.node_data,
-        rules.titers_tree.output.titers_model,
-        rules.clades.output.clades,
-        rules.traits.output.node_data,
-        rules.lbi.output.lbi
+        rules.titers_tree.output.titers_model
     ]
 
     # Only request a distance file for builds that have mask configurations
@@ -516,6 +553,7 @@ rule export:
     output:
         auspice_tree = "auspice/flu_seasonal_{lineage}_{segment}_{resolution}_tree.json",
         auspice_meta = "auspice/flu_seasonal_{lineage}_{segment}_{resolution}_meta.json"
+    conda: "envs/nextstrain.yaml"
     shell:
         """
         augur export \
@@ -525,6 +563,22 @@ rule export:
             --auspice-config {input.auspice_config} \
             --output-tree {output.auspice_tree} \
             --output-meta {output.auspice_meta}
+        """
+
+rule convert_tree_to_table:
+    input:
+        tree = rules.export.output.auspice_tree
+    output:
+        table = "auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}.tsv"
+    params:
+        attributes = config["attributes_to_export"]
+    conda: "envs/nextstrain.yaml"
+    shell:
+        """
+        python3 scripts/tree_to_table.py \
+            {input.tree} \
+            {output} \
+            --attributes {params.attributes}
         """
 
 rule clean:
