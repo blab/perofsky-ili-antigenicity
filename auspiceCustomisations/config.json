@@ -1,0 +1,16 @@
+{
+  "entryPage": "datasetLoader",
+  "hardcodedDataPaths": {
+    "mainJSON": "auspice/flu_seasonal_h3n2_ha_21y.json"
+  },
+  "sidebarTheme": {
+    "background": "#005C68",
+    "color": "#F6EECA",
+    "sidebarBoxShadow": "rgba(255, 255, 255, 1)",
+    "font-family": "Lato, Helvetica Neue, Helvetica, sans-serif",
+    "selectedColor": "#F1605D",
+    "unselectedColor": "#F6EECA"
+  },
+  "navbarComponent": "navbar.js",
+  "browserTitle": "seasonal flu viruses 1997-2018"
+}
