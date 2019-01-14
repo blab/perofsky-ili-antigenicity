@@ -96,6 +96,7 @@ def _get_mask_names_by_wildcards(wildcards):
 rule all:
     input:
         auspice_tables = expand("auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions),
+        auspice_static = expand("auspice_static/flu_seasonal_{lineage}_{segment}_{resolution}.json", lineage=lineages, segment=segments, resolution=resolutions)
 
 rule files:
     params:
@@ -582,6 +583,21 @@ rule convert_tree_to_table:
             {input.tree} \
             {output} \
             --attributes {params.attributes}
+        """
+
+rule merge_auspice_jsons:
+    input:
+        tree = rules.export.output.auspice_tree,
+        metadata = rules.export.output.auspice_meta
+    output:
+        table = "auspice_static/flu_seasonal_{lineage}_{segment}_{resolution}.json"
+    conda: "envs/nextstrain.yaml"
+    shell:
+        """
+        python3 scripts/merge_auspice_jsons.py \
+            {input.tree} \
+            {input.metadata} \
+            {output}
         """
 
 rule clean:
