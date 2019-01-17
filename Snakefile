@@ -46,7 +46,7 @@ def substitution_rates(w):
     return references[(w.lineage, w.segment)]
 
 def vpm(v):
-    vpm = {'2y':2, '3y':2, '6y':2, '12y':1, '21y': 15}
+    vpm = {'2y':2, '3y':2, '6y':2, '12y':1, '21y': 36}
     return vpm[v.resolution] if v.resolution in vpm else 5
 
 #
@@ -139,7 +139,7 @@ rule download_titers:
         """
         env PYTHONPATH={path_to_fauna} \
             python2 {path_to_fauna}/tdb/download.py \
-                --database cdc_tdb \
+                --database tdb cdc_tdb \
                 --virus flu \
                 --subtype {wildcards.lineage} \
                 --select assay_type:hi \
@@ -166,26 +166,56 @@ rule parse:
             --fields {params.fasta_fields}
         """
 
+rule filter:
+    message:
+        """
+        Filtering {wildcards.lineage} {wildcards.segment} sequences:
+          - less than {params.min_length} bases
+          - outliers
+          - samples with missing region and country metadata
+        """
+    input:
+        metadata = rules.parse.output.metadata,
+        sequences = rules.parse.output.sequences,
+        exclude = files.outliers
+    output:
+        sequences = 'results/filtered_{lineage}_{segment}.fasta'
+    params:
+        min_length = config["min_length"]
+    conda: "envs/nextstrain.yaml"
+    shell:
+        # TODO: Exclude egg strains and require vaccine strains
+        """
+        augur filter \
+            --sequences {input.sequences} \
+            --metadata {input.metadata} \
+            --min-length {params.min_length} \
+            --non-nucleotide \
+            --exclude {input.exclude} \
+            --exclude-where country=? region=? \
+            --output {output}
+        """
+
 rule select_strains:
     input:
+        sequences = expand("results/filtered_{{lineage}}_{segment}.fasta", segment=segments),
         metadata = expand("results/metadata_{{lineage}}_{segment}.tsv", segment=segments),
-        titers = rules.download_titers.output.titers
+        titers = rules.download_titers.output.titers,
+        include = files.references
     output:
         strains = "results/strains_{lineage}_{resolution}.txt",
     params:
         start_date = config["start_date"],
         end_date = config["end_date"],
-        viruses_per_month = vpm,
-        exclude = files.outliers,
-        include = files.references
+        viruses_per_month = vpm
     conda: "envs/nextstrain.yaml"
     shell:
         """
-        python scripts/select_strains.py \
+        python3 scripts/select_strains.py \
+            --sequences {input.sequences} \
             --metadata {input.metadata} \
             --segments {segments} \
-            --exclude {params.exclude} \
-            --include {params.include} \
+            --include {input.include} \
             --lineage {wildcards.lineage} \
             --time-interval {params.start_date} {params.end_date} \
             --viruses_per_month {params.viruses_per_month} \
@@ -193,37 +223,18 @@ rule select_strains:
             --output {output.strains}
         """
 
-rule extract_strain_sequences:
+rule extract:
     input:
-        metadata = rules.parse.output.metadata,
-        sequences = 'results/sequences_{lineage}_{segment}.fasta',
+        sequences = rules.filter.output.sequences,
         strains = rules.select_strains.output.strains
     output:
         sequences = 'results/extracted_{lineage}_{segment}_{resolution}.fasta'
-    run:
-        from Bio import SeqIO
-        with open(input.strains) as infile:
-            strains = set(map(lambda x:x.strip(), infile.readlines()))
-        with open(output.sequences, 'w') as outfile:
-            for seq in SeqIO.parse(input.sequences, 'fasta'):
-                if seq.name in strains:
-                    SeqIO.write(seq, outfile, 'fasta')
-
-rule filter:
-    input:
-        sequences = rules.extract_strain_sequences.output.sequences,
-        metadata = rules.parse.output.metadata
-    output:
-        sequences = 'results/filtered_{lineage}_{segment}_{resolution}.fasta'
-    params:
-        min_length = 900
     conda: "envs/nextstrain.yaml"
     shell:
         """
-        augur filter \
+        python3 scripts/extract_sequences.py \
             --sequences {input.sequences} \
-            --metadata {input.metadata} \
-            --min-length {params.min_length} \
+            --samples {input.strains} \
             --output {output}
         """
 
@@ -234,7 +245,7 @@ rule align:
           - filling gaps with N
         """
     input:
-        sequences = rules.filter.output.sequences,
+        sequences = rules.extract.output.sequences,
         reference = files.reference
     output:
         alignment = "results/aligned_{lineage}_{segment}_{resolution}.fasta"
