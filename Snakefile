@@ -96,7 +96,7 @@ def _get_mask_names_by_wildcards(wildcards):
 rule all:
     input:
         auspice_tables = expand("auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions),
-        auspice_static = expand("auspice_static/flu_seasonal_{lineage}_{segment}_{resolution}.json", lineage=lineages, segment=segments, resolution=resolutions)
+        auspice = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}.json", lineage=lineages, segment=segments, resolution=resolutions)
 
 rule files:
     params:
@@ -555,8 +555,8 @@ rule export:
         auspice_config = files.auspice_config,
         node_data = _get_node_data_for_export
     output:
-        auspice_tree = "auspice/flu_seasonal_{lineage}_{segment}_{resolution}_tree.json",
-        auspice_meta = "auspice/flu_seasonal_{lineage}_{segment}_{resolution}_meta.json"
+        auspice_tree = "auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_tree.json",
+        auspice_meta = "auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_meta.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -590,7 +590,7 @@ rule merge_auspice_jsons:
         tree = rules.export.output.auspice_tree,
         metadata = rules.export.output.auspice_meta
     output:
-        table = "auspice_static/flu_seasonal_{lineage}_{segment}_{resolution}.json"
+        table = "auspice/flu_seasonal_{lineage}_{segment}_{resolution}.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
