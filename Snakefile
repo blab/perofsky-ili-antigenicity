@@ -1,3 +1,4 @@
+from augur.frequency_estimators import timestamp_to_float
 from datetime import date
 import pandas as pd
 from treetime.utils import numeric_date
@@ -12,6 +13,11 @@ resolutions = ['21y']
 frequency_regions = ['north_america', 'south_america', 'europe', 'china',
                      'southeast_asia', 'japan_korea', 'south_asia', 'africa']
 
+def _get_float_date_from_string(date_string):
+    return timestamp_to_float(pd.to_datetime(date_string))
+
+MIN_DATE = _get_float_date_from_string(config["start_date"])
+MAX_DATE = _get_float_date_from_string(config["end_date"])
 
 def reference_strain(v):
     references = {'h3n2':"A/Beijing/32/1992",
@@ -96,7 +102,8 @@ def _get_mask_names_by_wildcards(wildcards):
 rule all:
     input:
         auspice_tables = expand("auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions),
-        auspice = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}.json", lineage=lineages, segment=segments, resolution=resolutions)
+        auspice = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}.json", lineage=lineages, segment=segments, resolution=resolutions),
+        auspice_frequencies = expand("auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_tip-frequencies.json", lineage=lineages, segment=segments, resolution=resolutions)
 
 rule files:
     params:
@@ -423,54 +430,6 @@ rule titers_tree:
             --output {output.titers_model}
         """
 
-rule mutation_frequencies:
-    input:
-        metadata = rules.parse.output.metadata,
-        alignment = translations
-    params:
-        genes = gene_names,
-        min_date = min_date,
-        max_date = max_date,
-        pivots_per_year = pivots_per_year
-    output:
-        mut_freq = "results/mutation-frequencies_{lineage}_{segment}_{resolution}.json"
-    conda: "envs/nextstrain.yaml"
-    shell:
-        """
-        augur frequencies \
-            --alignments {input.alignment} \
-            --metadata {input.metadata} \
-            --gene-names {params.genes} \
-            --min-date {params.min_date} \
-            --max-date {params.max_date} \
-            --pivots-per-year {params.pivots_per_year} \
-            --output {output.mut_freq}
-        """
-
-rule tree_frequencies:
-    input:
-        metadata = rules.parse.output.metadata,
-        tree = rules.refine.output.tree
-    params:
-        regions = frequency_regions + ['global'],
-        min_date = min_date,
-        max_date = max_date,
-        pivots_per_year = pivots_per_year
-    output:
-        tree_freq = "results/tree-frequencies_{lineage}_{segment}_{resolution}.json",
-    conda: "envs/nextstrain.yaml"
-    shell:
-        """
-        augur frequencies \
-            --tree {input.tree} \
-            --metadata {input.metadata} \
-            --pivots-per-year {params.pivots_per_year} \
-            --regions {params.regions} \
-            --min-date {params.min_date} \
-            --max-date {params.max_date} \
-            --output {output.tree_freq}
-        """
-
 rule clades:
     message: "Annotating clades"
     input:
@@ -535,6 +494,39 @@ rule lbi:
             --attribute-names {params.names} \
             --tau {params.tau} \
             --window {params.window}
+        """
+
+rule tip_frequencies:
+    input:
+        tree = rules.refine.output.tree,
+        metadata = rules.parse.output.metadata,
+        weights = "config/frequency_weights_by_region.json"
+    params:
+        narrow_bandwidth = 1 / 12.0,
+        wide_bandwidth = 3 / 12.0,
+        proportion_wide = 0.0,
+        weight_attribute = "region",
+        min_date = MIN_DATE,
+        max_date = MAX_DATE,
+        pivot_interval = config["pivot_interval"]
+    output:
+        tip_freq = "auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_tip-frequencies.json"
+    conda: "envs/nextstrain.yaml"
+    shell:
+        """
+        augur frequencies \
+            --method kde \
+            --tree {input.tree} \
+            --metadata {input.metadata} \
+            --narrow-bandwidth {params.narrow_bandwidth} \
+            --wide-bandwidth {params.wide_bandwidth} \
+            --proportion-wide {params.proportion_wide} \
+            --weights {input.weights} \
+            --weights-attribute {params.weight_attribute} \
+            --pivot-interval {params.pivot_interval} \
+            --min-date {params.min_date} \
+            --max-date {params.max_date} \
+            --output {output}
         """
 
 def _get_node_data_for_export(wildcards):

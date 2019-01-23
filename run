@@ -82,7 +82,7 @@ fi
 
 # Setup the environment.
 . ${HOME}/miniconda3/etc/profile.d/conda.sh
-conda activate janus_python3
+conda activate nextstrain
 
 # Run jobs on the cluster if it is possible and the user did not request a local
 # run.
