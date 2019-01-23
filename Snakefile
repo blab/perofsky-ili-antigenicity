@@ -184,7 +184,6 @@ rule filter:
         min_length = config["min_length"]
     conda: "envs/nextstrain.yaml"
     shell:
-        # TODO: Exclude egg strains and require vaccine strains
         """
         augur filter \
             --sequences {input.sequences} \
@@ -192,7 +191,7 @@ rule filter:
             --min-length {params.min_length} \
             --non-nucleotide \
             --exclude {input.exclude} \
-            --exclude-where country=? region=? \
+            --exclude-where country=? region=? passage=egg \
             --output {output}
         """
 
