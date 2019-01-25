@@ -215,7 +215,8 @@ rule select_strains:
     params:
         start_date = config["start_date"],
         end_date = config["end_date"],
-        viruses_per_month = vpm
+        viruses_per_month = vpm,
+        preferred_region = config["preferred_region"]
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -228,6 +229,7 @@ rule select_strains:
             --time-interval {params.start_date} {params.end_date} \
             --viruses_per_month {params.viruses_per_month} \
             --titers {input.titers} \
+            --priority-region {params.preferred_region} \
             --output {output.strains}
         """
 
