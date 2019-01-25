@@ -184,6 +184,7 @@ rule filter:
     input:
         metadata = rules.parse.output.metadata,
         sequences = rules.parse.output.sequences,
+        include = files.references,
         exclude = files.outliers
     output:
         sequences = 'results/filtered_{lineage}_{segment}.fasta'
@@ -197,6 +198,7 @@ rule filter:
             --metadata {input.metadata} \
             --min-length {params.min_length} \
             --non-nucleotide \
+            --include {input.include} \
             --exclude {input.exclude} \
             --exclude-where country=? region=? passage=egg \
             --output {output}
