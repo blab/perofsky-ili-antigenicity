@@ -52,7 +52,7 @@ def substitution_rates(w):
     return references[(w.lineage, w.segment)]
 
 def vpm(v):
-    vpm = {'2y':2, '3y':2, '6y':2, '12y':1, '21y': 36}
+    vpm = {'2y':2, '3y':2, '6y':2, '12y':1, '21y': 50}
     return vpm[v.resolution] if v.resolution in vpm else 5
 
 #
