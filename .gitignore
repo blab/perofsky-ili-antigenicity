@@ -148,3 +148,4 @@ data/
 results/
 auspice/
 build/
+slurm*.out
