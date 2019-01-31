@@ -149,7 +149,7 @@ rule download_titers:
                 --database tdb cdc_tdb \
                 --virus flu \
                 --subtype {wildcards.lineage} \
-                --select assay_type:hi \
+                --select assay_type:hi serum_passage_category:cell \
                 --path data \
                 --fstem {wildcards.lineage}_hi
         """
