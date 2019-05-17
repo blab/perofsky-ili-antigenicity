@@ -4,12 +4,22 @@ import pandas as pd
 from treetime.utils import numeric_date
 
 configfile: "config.json"
-localrules: download_sequences, download_titers
+localrules: download_sequences, download_all_titers_by_assay, get_titers_by_passage, filter_metadata
+
+wildcard_constraints:
+    sample="sample_(\d+|titers)",
+    viruses="\d+",
+    bandwidth="[0-9]*\.?[0-9]+",
+    lineage="[a-z0-9]+",
+    segment="[a-z]+[0-9]?",
+    region="[a-z_]+",
+    resolution="\d+y"
 
 path_to_fauna = '../fauna'
 segments = ['ha']
 lineages = ['h3n2']
 resolutions = ['21y']
+regions = ["global", "north_america"]
 frequency_regions = ['north_america', 'south_america', 'europe', 'china',
                      'southeast_asia', 'japan_korea', 'south_asia', 'africa']
 
@@ -33,7 +43,7 @@ def gene_names(w):
 
 def translations(w):
     genes = gene_names(w)
-    return ["results/aa-seq_%s_%s_%s_%s.fasta"%(w.lineage, w.segment, w.resolution, g)
+    return ["results/%s/aa-seq_%s_%s_%s_%s.fasta" % (w.region, w.lineage, w.segment, w.resolution, g)
             for g in genes]
 
 def pivots_per_year(w):
@@ -77,7 +87,7 @@ def _get_lbi_window_for_wildcards(wildcards):
 
 # Load mask configuration including which masks map to which attributes per
 # lineage and segment.
-masks_config = pd.read_table("config/mask_config.tsv")
+masks_config = pd.read_table("config/distance_maps.tsv")
 
 def _get_build_mask_config(wildcards):
     config = masks_config[(masks_config["lineage"] == wildcards.lineage) &
@@ -87,13 +97,24 @@ def _get_build_mask_config(wildcards):
     else:
         return None
 
-def _get_mask_attribute_names_by_wildcards(wildcards):
+def _get_distance_comparisons_by_lineage_and_segment(wildcards):
+    config = _get_build_mask_config(wildcards)
+    return " ".join(config.loc[:, "compare_to"].values)
+
+def _get_distance_attributes_by_lineage_and_segment(wildcards):
     config = _get_build_mask_config(wildcards)
     return " ".join(config.loc[:, "attribute"].values)
 
-def _get_mask_names_by_wildcards(wildcards):
+def _get_seasonal_distance_attributes_by_lineage_and_segment(wildcards):
     config = _get_build_mask_config(wildcards)
-    return " ".join(config.loc[:, "mask"].values)
+    return " ".join(["%s_seasonal" % attribute for attribute in config.loc[:, "attribute"].values])
+
+def _get_distance_maps_by_lineage_and_segment(wildcards):
+    config = _get_build_mask_config(wildcards)
+    return [
+        "config/distance_maps/{wildcards.lineage}/{wildcards.segment}/{distance_map}.json".format(wildcards=wildcards, distance_map=distance_map)
+        for distance_map in config.loc[:, "distance_map"].values
+    ]
 
 #
 # Define rules.
@@ -101,9 +122,9 @@ def _get_mask_names_by_wildcards(wildcards):
 
 rule all:
     input:
-        auspice_tables = expand("auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions),
-        auspice = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}.json", lineage=lineages, segment=segments, resolution=resolutions),
-        auspice_frequencies = expand("auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_tip-frequencies.json", lineage=lineages, segment=segments, resolution=resolutions)
+        auspice_tables = expand("auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
+        auspice = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
+        auspice_frequencies = expand("auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_tip-frequencies.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions)
 
 rule files:
     params:
@@ -135,24 +156,50 @@ rule download_sequences:
                 --fstem {wildcards.lineage}_{wildcards.segment}
         """
 
-rule download_titers:
-    message: "Downloading titers from fauna"
+rule download_all_titers_by_assay:
+    message: "Downloading {wildcards.lineage} HI titers from fauna"
     output:
-        titers = "data/{lineage}_hi_titers.tsv"
+        titers = "data/{lineage}_hi_titers.json"
+    conda: "envs/nextstrain.yaml"
+    benchmark: "benchmarks/download_all_titers_{lineage}_hi.txt"
+    log: "logs/download_all_titers_{lineage}_hi.log"
     params:
-        fasta_fields = "strain virus accession collection_date region country division location passage_category submitting_lab age gender"
-    conda: "envs/nextstrain.python2.yaml"
+        databases = "tdb cdc_tdb crick_tdb"
     shell:
         """
-        env PYTHONPATH={path_to_fauna} \
-            python2 {path_to_fauna}/tdb/download.py \
-                --database tdb cdc_tdb \
-                --virus flu \
-                --subtype {wildcards.lineage} \
-                --select assay_type:hi serum_passage_category:cell \
-                --path data \
-                --fstem {wildcards.lineage}_hi
+        python3 {path_to_fauna}/tdb/download.py \
+            --database {params.databases} \
+            --virus flu \
+            --subtype {wildcards.lineage} \
+            --select assay_type:hi \
+            --path data \
+            --fstem {wildcards.lineage}_hi \
+            --ftype json
         """
+
+rule get_titers_by_passage:
+    message: "Parsing cell-passaged titers for {wildcards.lineage} HI"
+    input:
+        titers = rules.download_all_titers_by_assay.output.titers
+    output:
+        titers = "data/{lineage}_hi_titers.tsv"
+    benchmark: "benchmarks/get_titers_{lineage}_cell_hi.txt"
+    log: "logs/get_titers_{lineage}_cell_hi.log"
+    run:
+        df = pd.read_json(input.titers)
+        passaged = (df["serum_passage_category"] == "cell")
+        tdb_passaged = df["index"].apply(lambda index: isinstance(index, list) and "cell" in index)
+        tsv_fields = [
+            "virus_strain",
+            "serum_strain",
+            "serum_id",
+            "source",
+            "titer",
+            "assay_type"
+        ]
+
+        titers_df = df.loc[(passaged | tdb_passaged), tsv_fields]
+        titers_df.to_csv(output.titers, sep="\t", header=False, index=False)
 
 rule parse:
     message: "Parsing fasta into sequences and metadata"
@@ -204,19 +251,31 @@ rule filter:
             --output {output}
         """
 
+rule filter_metadata:
+    message:
+        """
+        Excluding strains with ambiguous dates for {wildcards.lineage} {wildcards.segment}
+        """
+    input:
+        metadata = rules.parse.output.metadata,
+    output:
+        metadata = "results/filtered_metadata_{lineage}_{segment}.tsv"
+    run:
+        df = pd.read_csv(input.metadata, sep="\t")
+        df[~df["date"].str.contains("XX-XX")].to_csv(output.metadata, sep="\t", header=True, index=False)
+
 rule select_strains:
     input:
         sequences = expand("results/filtered_{{lineage}}_{segment}.fasta", segment=segments),
-        metadata = expand("results/metadata_{{lineage}}_{segment}.tsv", segment=segments),
-        titers = rules.download_titers.output.titers,
+        metadata = expand("results/filtered_metadata_{{lineage}}_{segment}.tsv", segment=segments),
+        titers = rules.get_titers_by_passage.output.titers,
         include = files.references
     output:
-        strains = "results/strains_{lineage}_{resolution}.txt",
+        strains = "results/{region}/strains_{lineage}_{resolution}.txt",
     params:
         start_date = config["start_date"],
         end_date = config["end_date"],
-        viruses_per_month = vpm,
-        preferred_region = config["preferred_region"]
+        viruses_per_month = vpm
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -229,7 +288,7 @@ rule select_strains:
             --time-interval {params.start_date} {params.end_date} \
             --viruses_per_month {params.viruses_per_month} \
             --titers {input.titers} \
-            --priority-region {params.preferred_region} \
+            --priority-region {wildcards.region} \
             --output {output.strains}
         """
 
@@ -238,7 +297,7 @@ rule extract:
         sequences = rules.filter.output.sequences,
         strains = rules.select_strains.output.strains
     output:
-        sequences = 'results/extracted_{lineage}_{segment}_{resolution}.fasta'
+        sequences = 'results/{region}/extracted_{lineage}_{segment}_{resolution}.fasta'
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -258,7 +317,7 @@ rule align:
         sequences = rules.extract.output.sequences,
         reference = files.reference
     output:
-        alignment = "results/aligned_{lineage}_{segment}_{resolution}.fasta"
+        alignment = "results/{region}/aligned_{lineage}_{segment}_{resolution}.fasta"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -275,7 +334,7 @@ rule tree:
     input:
         alignment = rules.align.output.alignment
     output:
-        tree = "results/tree-raw_{lineage}_{segment}_{resolution}.nwk"
+        tree = "results/{region}/tree-raw_{lineage}_{segment}_{resolution}.nwk"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -298,8 +357,8 @@ rule refine:
         alignment = rules.align.output,
         metadata = rules.parse.output.metadata
     output:
-        tree = "results/tree_{lineage}_{segment}_{resolution}.nwk",
-        node_data = "results/branch-lengths_{lineage}_{segment}_{resolution}.json"
+        tree = "results/{region}/tree_{lineage}_{segment}_{resolution}.nwk",
+        node_data = "results/{region}/branch-lengths_{lineage}_{segment}_{resolution}.json"
     params:
         coalescent = "const",
         date_inference = "marginal",
@@ -326,7 +385,7 @@ rule ancestral:
         tree = rules.refine.output.tree,
         alignment = rules.align.output
     output:
-        node_data = "results/nt-muts_{lineage}_{segment}_{resolution}.json"
+        node_data = "results/{region}/nt-muts_{lineage}_{segment}_{resolution}.json"
     params:
         inference = "joint"
     conda: "envs/nextstrain.yaml"
@@ -346,7 +405,7 @@ rule translate:
         node_data = rules.ancestral.output.node_data,
         reference = files.reference
     output:
-        node_data = "results/aa-muts_{lineage}_{segment}_{resolution}.json",
+        node_data = "results/{region}/aa-muts_{lineage}_{segment}_{resolution}.json",
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -361,9 +420,9 @@ rule reconstruct_translations:
     message: "Reconstructing translations required for titer models and frequencies"
     input:
         tree = rules.refine.output.tree,
-        node_data = "results/aa-muts_{lineage}_{segment}_{resolution}.json",
+        node_data = "results/{region}/aa-muts_{lineage}_{segment}_{resolution}.json",
     output:
-        aa_alignment = "results/aa-seq_{lineage}_{segment}_{resolution}_{gene}.fasta"
+        aa_alignment = "results/{region}/aa-seq_{lineage}_{segment}_{resolution}_{gene}.fasta"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -384,7 +443,7 @@ rule traits:
         tree = rules.refine.output.tree,
         metadata = rules.parse.output.metadata
     output:
-        node_data = "results/traits_{lineage}_{segment}_{resolution}.json",
+        node_data = "results/{region}/traits_{lineage}_{segment}_{resolution}.json",
     params:
         columns = "region"
     conda: "envs/nextstrain.yaml"
@@ -400,14 +459,14 @@ rule traits:
 
 rule titers_sub:
     input:
-        titers = rules.download_titers.output.titers,
+        titers = rules.get_titers_by_passage.output.titers,
         aa_muts = rules.translate.output,
         alignments = translations,
         tree = rules.refine.output.tree
     params:
         genes = gene_names
     output:
-        titers_model = "results/titers-sub-model_{lineage}_{segment}_{resolution}.json",
+        titers_model = "results/{region}/titers-sub-model_{lineage}_{segment}_{resolution}.json",
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -421,10 +480,10 @@ rule titers_sub:
 
 rule titers_tree:
     input:
-        titers = rules.download_titers.output.titers,
+        titers = rules.get_titers_by_passage.output.titers,
         tree = rules.refine.output.tree
     output:
-        titers_model = "results/titers-tree-model_{lineage}_{segment}_{resolution}.json",
+        titers_model = "results/{region}/titers-tree-model_{lineage}_{segment}_{resolution}.json",
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -432,6 +491,19 @@ rule titers_tree:
             --titers {input.titers} \
             --tree {input.tree} \
             --output {output.titers_model}
+        """
+
+rule convert_titer_model_to_distance_map:
+    input:
+        model = rules.titers_sub.output.titers_model
+    output:
+        distance_map = "results/{region}/titer_substitution_distance_map_{lineage}_{segment}_{resolution}.json"
+    conda: "envs/nextstrain.yaml"
+    shell:
+        """
+        python3 scripts/titer_model_to_distance_map.py \
+            --model {input.model} \
+            --output {output}
         """
 
 rule clades:
@@ -442,7 +514,7 @@ rule clades:
         aa_muts = rules.translate.output,
         clade_definitions = "config/clades_{lineage}_{segment}.tsv"
     output:
-        clades = "results/clades_{lineage}_{segment}_{resolution}.json"
+        clades = "results/{region}/clades_{lineage}_{segment}_{resolution}.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -457,13 +529,13 @@ rule distances:
     input:
         tree = rules.refine.output.tree,
         alignments = translations,
-        masks = "config/{segment}_masks.tsv"
+        distance_maps = _get_distance_maps_by_lineage_and_segment
     params:
         genes = gene_names,
-        attribute_names = _get_mask_attribute_names_by_wildcards,
-        mask_names = _get_mask_names_by_wildcards
+        comparisons = _get_distance_comparisons_by_lineage_and_segment,
+        attribute_names = _get_distance_attributes_by_lineage_and_segment
     output:
-        distances = "results/distances_{lineage}_{segment}_{resolution}.json",
+        distances = "results/{region}/distances_{lineage}_{segment}_{resolution}.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -471,10 +543,74 @@ rule distances:
             --tree {input.tree} \
             --alignment {input.alignments} \
             --gene-names {params.genes} \
-            --masks {input.masks} \
-            --output {output} \
-            --attribute-names {params.attribute_names} \
-            --mask-names {params.mask_names}
+            --compare-to {params.comparisons} \
+            --attribute-name {params.attribute_names} \
+            --map {input.distance_maps} \
+            --output {output}
+        """
+
+rule seasonal_distances:
+    input:
+        tree = rules.refine.output.tree,
+        alignments = translations,
+        distance_maps = _get_distance_maps_by_lineage_and_segment,
+        date_annotations = rules.refine.output.node_data
+    params:
+        genes = gene_names,
+        attribute_names = _get_seasonal_distance_attributes_by_lineage_and_segment,
+        start_date = "1997-04-01",
+        end_date = "2019-04-01",
+        interval = 6,
+        months_prior_to_season = 12
+    output:
+        distances = "results/{region}/seasonal_distances_{lineage}_{segment}_{resolution}.json"
+    conda: "envs/nextstrain.yaml"
+    shell:
+        """
+        python3 scripts/seasonal_distance.py \
+            --tree {input.tree} \
+            --alignment {input.alignments} \
+            --gene-names {params.genes} \
+            --attribute-name {params.attribute_names} \
+            --map {input.distance_maps} \
+            --date-annotations {input.date_annotations} \
+            --start-date {params.start_date} \
+            --end-date {params.end_date} \
+            --interval {params.interval} \
+            --months-prior-to-season {params.months_prior_to_season} \
+            --output {output}
+        """
+
+rule seasonal_titer_distances:
+    input:
+        tree = rules.refine.output.tree,
+        alignments = translations,
+        distance_maps = rules.convert_titer_model_to_distance_map.output.distance_map,
+        date_annotations = rules.refine.output.node_data
+    params:
+        genes = gene_names,
+        attribute_names = "cTiterSub_seasonal",
+        start_date = "1997-04-01",
+        end_date = "2019-04-01",
+        interval = 6,
+        months_prior_to_season = 12
+    output:
+        distances = "results/{region}/seasonal_titer_distances_{lineage}_{segment}_{resolution}.json"
+    conda: "envs/nextstrain.yaml"
+    shell:
+        """
+        python3 scripts/seasonal_distance.py \
+            --tree {input.tree} \
+            --alignment {input.alignments} \
+            --gene-names {params.genes} \
+            --attribute-name {params.attribute_names} \
+            --map {input.distance_maps} \
+            --date-annotations {input.date_annotations} \
+            --start-date {params.start_date} \
+            --end-date {params.end_date} \
+            --interval {params.interval} \
+            --months-prior-to-season {params.months_prior_to_season} \
+            --output {output}
         """
 
 rule lbi:
@@ -487,7 +623,7 @@ rule lbi:
         window = _get_lbi_window_for_wildcards,
         names = "lbi"
     output:
-        lbi = "results/lbi_{lineage}_{segment}_{resolution}.json"
+        lbi = "results/{region}/lbi_{lineage}_{segment}_{resolution}.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -514,7 +650,7 @@ rule tip_frequencies:
         max_date = MAX_DATE,
         pivot_interval = config["pivot_interval"]
     output:
-        tip_freq = "auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_tip-frequencies.json"
+        tip_freq = "auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_tip-frequencies.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -549,6 +685,8 @@ def _get_node_data_for_export(wildcards):
     # defined.
     if _get_build_mask_config(wildcards) is not None:
         inputs.append(rules.distances.output.distances)
+        inputs.append(rules.seasonal_distances.output.distances)
+        inputs.append(rules.seasonal_titer_distances.output.distances)
 
     # Convert input files from wildcard strings to real file names.
     inputs = [input_file.format(**wildcards) for input_file in inputs]
@@ -561,8 +699,8 @@ rule export:
         auspice_config = files.auspice_config,
         node_data = _get_node_data_for_export
     output:
-        auspice_tree = "auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_tree.json",
-        auspice_meta = "auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_meta.json"
+        auspice_tree = "auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_tree.json",
+        auspice_meta = "auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_meta.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -579,7 +717,7 @@ rule convert_tree_to_table:
     input:
         tree = rules.export.output.auspice_tree
     output:
-        table = "auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}.tsv"
+        table = "auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.tsv"
     params:
         attributes = config["attributes_to_export"]
     conda: "envs/nextstrain.yaml"
@@ -596,7 +734,7 @@ rule merge_auspice_jsons:
         tree = rules.export.output.auspice_tree,
         metadata = rules.export.output.auspice_meta
     output:
-        table = "auspice/flu_seasonal_{lineage}_{segment}_{resolution}.json"
+        table = "auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """

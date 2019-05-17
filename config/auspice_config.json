@@ -62,6 +62,42 @@
       "legendTitle": "RBS-adjacent mutations",
       "type": "continuous",
       "key": "rb"
+    },
+    "stem": {
+      "menuItem": "stem mutations",
+      "legendTitle": "Stem mutations",
+      "type": "continuous",
+      "key": "stem"
+    },
+    "ep_seasonal": {
+      "menuItem": "epitope since last season",
+      "legendTitle": "Epitope since last season",
+      "type": "continuous",
+      "key": "ep_seasonal"
+    },
+    "ne_seasonal": {
+      "menuItem": "non-epitope since last season",
+      "legendTitle": "Non-epitope since last season",
+      "type": "continuous",
+      "key": "ne_seasonal"
+    },
+    "rb_seasonal": {
+      "menuItem": "RBS-adjacent since last season",
+      "legendTitle": "RBS-adjacent since last season",
+      "type": "continuous",
+      "key": "rb_seasonal"
+    },
+    "stem_seasonal": {
+      "menuItem": "stem since last season",
+      "legendTitle": "Stem since last season",
+      "type": "continuous",
+      "key": "stem_seasonal"
+    },
+    "cTiterSub_seasonal": {
+      "menuItem": "antigenic advance since last season",
+      "legendTitle": "Antigenic advance since last season",
+      "type": "continuous",
+      "key": "cTiterSub_seasonal"
     }
   },
   "geo": [

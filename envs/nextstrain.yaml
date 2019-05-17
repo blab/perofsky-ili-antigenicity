@@ -4,6 +4,7 @@ channels:
 - conda-forge
 - defaults
 dependencies:
+- conda
 - cvxopt
 - fasttree
 - iqtree
@@ -13,5 +14,5 @@ dependencies:
 - raxml
 - snakemake
 - pip:
-  - git+https://github.com/nextstrain/augur@master
-  - rethinkdb
+  - nextstrain-augur==4.0.0
+  - rethinkdb==2.2.0.post6

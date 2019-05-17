@@ -1,0 +1,5 @@
+lineage	segment	compare_to	attribute	distance_map
+h3n2	ha	root	ep	wolf
+h3n2	ha	root	ne	wolf_nonepitope
+h3n2	ha	root	rb	koel
+h3n2	ha	root	stem	stem

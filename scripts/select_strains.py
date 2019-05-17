@@ -255,6 +255,11 @@ if __name__ == '__main__':
     args = parser.parse_args()
     time_interval = determine_time_interval(args.time_interval, args.resolution)
 
+    if args.priority_region == "global":
+        priority_region = None
+    else:
+        priority_region = args.priority_region
+
     # derive additional lower inclusion date for "force-included strains"
     lower_reference_cutoff = date(year = time_interval[1].year - args.max_include_range, month=1, day=1)
     upper_reference_cutoff = time_interval[0]
@@ -291,7 +296,7 @@ if __name__ == '__main__':
         args.viruses_per_month,
         time_interval,
         titer_fname=args.titers,
-        priority_region=args.priority_region,
+        priority_region=priority_region,
         priority_region_fraction=args.priority_region_fraction
     )
 
