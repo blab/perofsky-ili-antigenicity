@@ -258,11 +258,15 @@ rule filter_metadata:
         """
     input:
         metadata = rules.parse.output.metadata,
+        references = files.references
     output:
         metadata = "results/filtered_metadata_{lineage}_{segment}.tsv"
     run:
+        references = pd.read_csv(input.references, header=None, names=["strain"])
         df = pd.read_csv(input.metadata, sep="\t")
-        df[~df["date"].str.contains("XX-XX")].to_csv(output.metadata, sep="\t", header=True, index=False)
+        is_reference_strain = df["strain"].isin(references["strain"].values)
+        has_unambiguous_year_month = ~df["date"].str.contains("XX-XX")
+        df[is_reference_strain | has_unambiguous_year_month].to_csv(output.metadata, sep="\t", header=True, index=False)
 
 rule select_strains:
     input:
