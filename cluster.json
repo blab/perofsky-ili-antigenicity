@@ -23,5 +23,9 @@
     "ancestral": {
         "time": "0:15:00",
         "memory": "4096"
+    },
+    "mean_seasonal_distances": {
+        "time": "1:00:00",
+        "memory": "4096"
     }
 }

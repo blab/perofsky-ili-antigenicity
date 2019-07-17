@@ -679,6 +679,7 @@ rule mean_seasonal_distances:
         seasons_away_to_compare = 2
     output:
         distances = "results/{region}/mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv"
+    log: "logs/mean_seasonal_distances_{region}_{lineage}_{segment}_{resolution}.txt"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -693,7 +694,7 @@ rule mean_seasonal_distances:
             --end-date {params.end_date} \
             --interval {params.interval} \
             --seasons-away-to-compare {params.seasons_away_to_compare} \
-            --output {output}
+            --output {output} &> {log}
         """
 
 rule lbi:
