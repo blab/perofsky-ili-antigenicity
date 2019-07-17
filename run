@@ -84,6 +84,8 @@ fi
 . ${HOME}/miniconda3/etc/profile.d/conda.sh
 conda activate nextstrain
 
+export AUGUR_MINIFY_JSON=1
+
 # Run jobs on the cluster if it is possible and the user did not request a local
 # run.
 if [[ "${USE_CLUSTER}" -eq "1" ]]
