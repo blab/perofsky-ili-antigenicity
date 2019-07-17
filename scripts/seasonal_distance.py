@@ -108,10 +108,6 @@ if __name__ == "__main__":
 
     # Create season intervals.
     seasons = pd.date_range(args.start_date, args.end_date, freq="%iMS" % args.interval)
-    # seasons = [
-    #     pd.to_datetime(date)
-    #     for date in pd.date_range(args.start_date, args.end_date, freq="%iMS" % args.interval)
-    # ]
 
     # Load date annotations and annotate tree with them.
     date_annotations = read_node_data(args.date_annotations)
