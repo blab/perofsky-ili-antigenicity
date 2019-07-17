@@ -142,6 +142,7 @@ def _get_distance_maps_by_lineage_and_segment(wildcards):
 
 rule all:
     input:
+        mean_distances = expand("results/{region}/mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         auspice_tables = expand("auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         auspice = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         auspice_frequencies = expand("auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_tip-frequencies.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions)
@@ -608,9 +609,9 @@ rule seasonal_distances:
     params:
         genes = gene_names,
         attribute_names = _get_seasonal_distance_attributes_by_lineage_and_segment,
-        start_date = "1997-04-01",
-        end_date = "2019-04-01",
-        interval = 6,
+        start_date = "1997-07-01",
+        end_date = "2018-07-01",
+        interval = 12,
         months_prior_to_season = 12
     output:
         distances = "results/{region}/seasonal_distances_{lineage}_{segment}_{resolution}.json"
@@ -660,6 +661,38 @@ rule seasonal_titer_distances:
             --end-date {params.end_date} \
             --interval {params.interval} \
             --months-prior-to-season {params.months_prior_to_season} \
+            --output {output}
+        """
+
+rule mean_seasonal_distances:
+    input:
+        tree = rules.refine.output.tree,
+        alignments = translations,
+        distance_maps = _get_distance_maps_by_lineage_and_segment,
+        date_annotations = rules.refine.output.node_data
+    params:
+        genes = gene_names,
+        attribute_names = _get_seasonal_distance_attributes_by_lineage_and_segment,
+        start_date = "1997-07-01",
+        end_date = "2018-07-01",
+        interval = 12,
+        seasons_away_to_compare = 2
+    output:
+        distances = "results/{region}/mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv"
+    conda: "envs/nextstrain.yaml"
+    shell:
+        """
+        python3 scripts/mean_seasonal_distances.py \
+            --tree {input.tree} \
+            --alignment {input.alignments} \
+            --gene-names {params.genes} \
+            --attribute-name {params.attribute_names} \
+            --map {input.distance_maps} \
+            --date-annotations {input.date_annotations} \
+            --start-date {params.start_date} \
+            --end-date {params.end_date} \
+            --interval {params.interval} \
+            --seasons-away-to-compare {params.seasons_away_to_compare} \
             --output {output}
         """
 

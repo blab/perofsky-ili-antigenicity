@@ -1,0 +1,110 @@
+"""Calculate the distance between sequences between seasons.
+"""
+import argparse
+
+from augur.distance import read_distance_map, get_distance_between_nodes
+from augur.frequency_estimators import timestamp_to_float
+from augur.reconstruct_sequences import load_alignments
+from augur.utils import annotate_parents_for_tree, read_node_data, write_json
+
+import Bio
+import Bio.Phylo
+from collections import defaultdict
+import copy
+import json
+import numpy as np
+import pandas as pd
+import pprint
+import sys
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--tree", help="Newick tree", required=True)
+    parser.add_argument("--alignment", nargs="+", help="sequence(s) to be used, supplied as FASTA files", required=True)
+    parser.add_argument('--gene-names', nargs="+", type=str, help="names of the sequences in the alignment, same order assumed", required=True)
+    parser.add_argument("--attribute-name", nargs="+", help="name to store distances associated with the given distance map; multiple attribute names are linked to corresponding positional comparison method and distance map arguments", required=True)
+    parser.add_argument("--map", nargs="+", help="JSON providing the distance map between sites and, optionally, sequences present at those sites; the distance map JSON minimally requires a 'default' field defining a default numeric distance and a 'map' field defining a dictionary of genes and one-based coordinates", required=True)
+    parser.add_argument("--date-annotations", help="JSON of branch lengths and date annotations from augur refine for samples in the given tree; required for comparisons to earliest or latest date", required=True)
+    parser.add_argument("--start-date", help="date to start seasonal intervals (e.g., 2000-10-01)", required=True)
+    parser.add_argument("--end-date", help="date to end seasonal intervals (e.g., 2010-10-01)", required=True)
+    parser.add_argument("--interval", type=int, help="number of months per season", required=True)
+    parser.add_argument("--seasons-away-to-compare", type=int, help="number of seasons away from the current season to compare (e.g., 2 for the current season and the two that follow it)", required=True)
+    parser.add_argument("--output", help="JSON file with calculated distances stored by node name and attribute name", required=True)
+
+    args = parser.parse_args()
+
+    # Load tree and annotate parents.
+    tree = Bio.Phylo.read(args.tree, "newick")
+    tree = annotate_parents_for_tree(tree)
+
+    # Load sequences.
+    alignments = load_alignments(args.alignment, args.gene_names)
+
+    # Index sequences by node name and gene.
+    sequences_by_node_and_gene = defaultdict(dict)
+    for gene, alignment in alignments.items():
+        for record in alignment:
+            sequences_by_node_and_gene[record.name][gene] = str(record.seq)
+
+    # Create season intervals.
+    seasons = pd.date_range(args.start_date, args.end_date, freq="%iMS" % args.interval)
+
+    # Load date annotations and annotate tree with them.
+    date_annotations = read_node_data(args.date_annotations)
+    for node in tree.find_clades():
+        node.attr = date_annotations["nodes"][node.name]
+        node.attr["num_date"] = node.attr["numdate"]
+
+    # Assign tips to seasons.
+    tips_assigned = set()
+    tips_by_season = {}
+    for season in seasons:
+        season_date = season.strftime("%Y-%m-%d")
+        season_float = timestamp_to_float(season)
+        tips_by_season[season_date] = []
+
+        for tip in tree.find_clades(terminal=True):
+            if tip.name not in tips_assigned and tip.attr["num_date"] < season_float:
+                tips_assigned.add(tip.name)
+                tips_by_season[season_date].append(tip)
+
+    # Store the mean pairwise distance between seasons for one or more distance
+    # maps (e.g., epitope sites, non-epitope sites, etc.).
+    mean_seasonal_distances = []
+    for attribute, distance_map_file in zip(args.attribute_name, args.map):
+        # Load the given distance map.
+        distance_map = read_distance_map(distance_map_file)
+
+        for current_season_index, current_season in enumerate(seasons):
+            current_season_date = current_season.strftime("%Y-%m-%d")
+            for other_season in seasons[current_season_index:current_season_index + args.seasons_away_to_compare + 1]:
+                other_season_date = other_season.strftime("%Y-%m-%d")
+                print("Compare %s to %s with %s map" % (current_season_date, other_season_date, distance_map["name"]), flush=True)
+                total_distance = 0
+                total_comparisons = 0
+
+                for current_season_tip in tips_by_season[current_season_date]:
+                    for other_season_tip in tips_by_season[other_season_date]:
+                        total_distance += get_distance_between_nodes(
+                            sequences_by_node_and_gene[current_season_tip.name],
+                            sequences_by_node_and_gene[other_season_tip.name],
+                            distance_map
+                        )
+                        total_comparisons += 1
+
+                mean_seasonal_distances.append([
+                    current_season_date,
+                    other_season_date,
+                    distance_map["name"],
+                    total_distance,
+                    total_comparisons,
+                    total_distance / float(total_comparisons)
+                ])
+
+    # Export distances to a table.
+    df = pd.DataFrame(
+        mean_seasonal_distances,
+        columns=["current_season", "other_season", "distance_map", "total_distance", "total_comparisons", "mean_distance"]
+    )
+    df.to_csv(args.output, sep="\t", index=False)
