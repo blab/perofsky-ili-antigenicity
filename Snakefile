@@ -62,9 +62,24 @@ def min_date(w):
 def max_date(w):
     return numeric_date(date.today())
 
-def substitution_rates(w):
-    references = {('h3n2', 'ha'): 0.0038, ('h3n2', 'na'):0.0028}
-    return references[(w.lineage, w.segment)]
+def _get_clock_rate_by_wildcards(wildcards):
+    rates_by_lineage_and_segment = {
+        ('h3n2', 'ha'): 0.0043, ('h3n2', 'na'):0.0029,
+        ('h1n1pdm', 'ha'): 0.0040, ('h1n1pdm', 'na'):0.0032,
+        ('vic', 'ha'): 0.0024, ('vic', 'na'):0.0015,
+        ('yam', 'ha'): 0.0019, ('yam', 'na'):0.0013
+    }
+
+    try:
+        rate = rates_by_lineage_and_segment[(wildcards.lineage, wildcards.segment)]
+    except KeyError:
+        print(f"ERROR: No clock rate defined for {wildcards.lineage} and {wildcards.segment}", file=sys.stderr)
+        raise
+
+    return rate
+
+def _get_clock_std_dev_by_wildcards(wildcards):
+    return 0.2 * _get_clock_rate_by_wildcards(wildcards)
 
 def vpm(v):
     vpm = {'2y':2, '3y':2, '6y':2, '12y':1, '21y': 50}
@@ -371,8 +386,11 @@ rule refine:
     params:
         coalescent = "const",
         date_inference = "marginal",
-        clock_filter_iqd = 4
+        clock_filter_iqd = 4,
+        clock_rate = _get_clock_rate_by_wildcards,
+        clock_std_dev = _get_clock_std_dev_by_wildcards
     conda: "envs/nextstrain.yaml"
+    log: "logs/refine_{region}_{lineage}_{segment}_{resolution}.txt"
     shell:
         """
         augur refine \
@@ -382,10 +400,13 @@ rule refine:
             --output-tree {output.tree} \
             --output-node-data {output.node_data} \
             --timetree \
+            --clock-filter-iqd {params.clock_filter_iqd} \
+            --no-covariance \
+            --clock-rate {params.clock_rate} \
+            --clock-std-dev {params.clock_std_dev} \
             --coalescent {params.coalescent} \
             --date-confidence \
-            --date-inference {params.date_inference} \
-            --clock-filter-iqd {params.clock_filter_iqd}
+            --date-inference {params.date_inference}
         """
 
 rule ancestral:
