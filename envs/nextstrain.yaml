@@ -14,5 +14,5 @@ dependencies:
 - raxml
 - snakemake
 - pip:
-  - nextstrain-augur==4.0.0
+  - nextstrain-augur==5.1.0
   - rethinkdb==2.2.0.post6
