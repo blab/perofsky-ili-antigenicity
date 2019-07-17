@@ -46,6 +46,11 @@ def translations(w):
     return ["results/%s/aa-seq_%s_%s_%s_%s.fasta" % (w.region, w.lineage, w.segment, w.resolution, g)
             for g in genes]
 
+def translations_jsons(w):
+    genes = gene_names(w)
+    return ["results/%s/aa-seq_%s_%s_%s_%s.json" % (w.region, w.lineage, w.segment, w.resolution, g)
+            for g in genes]
+
 def pivots_per_year(w):
     pivots_per_year = {'2y':12, '3y':6, '6y':4, '12y':2}
     return pivots_per_year[w.resolution]
@@ -461,6 +466,22 @@ rule traits:
             --confidence
         """
 
+rule convert_translations_to_json:
+    input:
+        tree = rules.refine.output.tree,
+        translations = "results/{region}/aa-seq_{lineage}_{segment}_{resolution}_{gene}.fasta"
+    output:
+        translations = "results/{region}/aa-seq_{lineage}_{segment}_{resolution}_{gene}.json"
+    shell:
+        """
+        python3 scripts/convert_translations_to_json.py \
+            --tree {input.tree} \
+            --alignment {input.translations} \
+            --gene-name {wildcards.gene} \
+            --attribute-name {wildcards.gene} \
+            --output {output.translations}
+        """
+
 rule titers_sub:
     input:
         titers = rules.get_titers_by_passage.output.titers,
@@ -683,7 +704,7 @@ def _get_node_data_for_export(wildcards):
         rules.translate.output.node_data,
         rules.titers_tree.output.titers_model,
         rules.titers_sub.output.titers_model
-    ]
+    ] + translations_jsons(wildcards)
 
     # Only request a distance file for builds that have mask configurations
     # defined.
