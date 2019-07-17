@@ -343,6 +343,7 @@ rule align:
     output:
         alignment = "results/{region}/aligned_{lineage}_{segment}_{resolution}.fasta"
     conda: "envs/nextstrain.yaml"
+    threads: 4
     shell:
         """
         augur align \
@@ -350,7 +351,8 @@ rule align:
             --reference-sequence {input.reference} \
             --output {output.alignment} \
             --fill-gaps \
-            --remove-reference
+            --remove-reference \
+            --nthreads {threads}
         """
 
 rule tree:
@@ -360,11 +362,13 @@ rule tree:
     output:
         tree = "results/{region}/tree-raw_{lineage}_{segment}_{resolution}.nwk"
     conda: "envs/nextstrain.yaml"
+    threads: 4
     shell:
         """
         augur tree \
             --alignment {input.alignment} \
-            --output {output.tree}
+            --output {output.tree} \
+            --nthreads {threads}
         """
 
 rule refine:
