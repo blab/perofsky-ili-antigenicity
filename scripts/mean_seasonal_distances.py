@@ -30,7 +30,8 @@ if __name__ == "__main__":
     parser.add_argument("--end-date", help="date to end seasonal intervals (e.g., 2010-10-01)", required=True)
     parser.add_argument("--interval", type=int, help="number of months per season", required=True)
     parser.add_argument("--seasons-away-to-compare", type=int, help="number of seasons away from the current season to compare (e.g., 2 for the current season and the two that follow it)", required=True)
-    parser.add_argument("--output", help="JSON file with calculated distances stored by node name and attribute name", required=True)
+    parser.add_argument("--output", help="tab-delimited file with mean distances by node name and attribute name", required=True)
+    parser.add_argument("--strain-output", help="tab-delimited file with mean pairwise distance per strain by node names and attribute name")
 
     args = parser.parse_args()
 
@@ -72,6 +73,7 @@ if __name__ == "__main__":
     # Store the mean pairwise distance between seasons for one or more distance
     # maps (e.g., epitope sites, non-epitope sites, etc.).
     mean_seasonal_distances = []
+    pairwise_seasonal_distances = []
     for attribute, distance_map_file in zip(args.attribute_name, args.map):
         # Load the given distance map.
         distance_map = read_distance_map(distance_map_file)
@@ -83,15 +85,28 @@ if __name__ == "__main__":
                 print("Compare %s to %s with %s map" % (current_season_date, other_season_date, distance_map["name"]), flush=True)
                 total_distance = 0
                 total_comparisons = 0
+                total_other_season_tips = float(len(tips_by_season[other_season_date]))
 
                 for current_season_tip in tips_by_season[current_season_date]:
+                    current_tip_distance = 0
+
                     for other_season_tip in tips_by_season[other_season_date]:
-                        total_distance += get_distance_between_nodes(
+                        current_tip_distance += get_distance_between_nodes(
                             sequences_by_node_and_gene[current_season_tip.name],
                             sequences_by_node_and_gene[other_season_tip.name],
                             distance_map
                         )
                         total_comparisons += 1
+
+                    total_distance += current_tip_distance
+                    if args.strain_output:
+                        pairwise_seasonal_distances.append((
+                            current_season_date,
+                            other_season_date,
+                            distance_map["name"],
+                            current_season_tip.name,
+                            current_tip_distance / total_other_season_tips
+                        ))
 
                 mean_seasonal_distances.append([
                     current_season_date,
@@ -107,4 +122,12 @@ if __name__ == "__main__":
         mean_seasonal_distances,
         columns=["current_season", "other_season", "distance_map", "total_distance", "total_comparisons", "mean_distance"]
     )
-    df.to_csv(args.output, sep="\t", index=False)
+    df.to_csv(args.output, sep="\t", float_format="%.2f", index=False)
+
+    if args.strain_output:
+        # Export all pairwise distances to a table.
+        pairwise_df = pd.DataFrame(
+            pairwise_seasonal_distances,
+            columns=["current_season", "other_season", "distance_map", "current_strain", "mean_distance"]
+        )
+        pairwise_df.to_csv(args.strain_output, sep="\t", float_format="%.2f", index=False)

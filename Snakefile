@@ -142,7 +142,7 @@ def _get_distance_maps_by_lineage_and_segment(wildcards):
 
 rule all:
     input:
-        mean_distances = expand("results/{region}/mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
+        mean_distances = expand("results/{region}_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         auspice_tables = expand("auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         auspice = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         auspice_frequencies = expand("auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_tip-frequencies.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions)
@@ -678,7 +678,8 @@ rule mean_seasonal_distances:
         interval = 12,
         seasons_away_to_compare = 2
     output:
-        distances = "results/{region}/mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv"
+        distances = "results/{region}_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv",
+        pairwise_distances = "results/{region}_mean_strain_seasonal_distances_{lineage}_{segment}_{resolution}.tsv"
     log: "logs/mean_seasonal_distances_{region}_{lineage}_{segment}_{resolution}.txt"
     conda: "envs/nextstrain.yaml"
     shell:
@@ -694,7 +695,8 @@ rule mean_seasonal_distances:
             --end-date {params.end_date} \
             --interval {params.interval} \
             --seasons-away-to-compare {params.seasons_away_to_compare} \
-            --output {output} &> {log}
+            --output {output.distances} \
+            --strain-output {output.pairwise_distances} &> {log}
         """
 
 rule lbi:
