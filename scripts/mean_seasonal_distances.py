@@ -3,7 +3,6 @@
 import argparse
 
 from augur.distance import read_distance_map, get_distance_between_nodes
-from augur.frequency_estimators import timestamp_to_float
 from augur.reconstruct_sequences import load_alignments
 from augur.utils import annotate_parents_for_tree, read_node_data, write_json
 
@@ -16,6 +15,8 @@ import numpy as np
 import pandas as pd
 import pprint
 import sys
+
+from utils import get_seasons, get_tips_by_season
 
 
 if __name__ == "__main__":
@@ -49,7 +50,7 @@ if __name__ == "__main__":
             sequences_by_node_and_gene[record.name][gene] = str(record.seq)
 
     # Create season intervals.
-    seasons = pd.date_range(args.start_date, args.end_date, freq="%iMS" % args.interval)
+    seasons = get_seasons(args.start_date, args.end_date, args.interval)
 
     # Load date annotations and annotate tree with them.
     date_annotations = read_node_data(args.date_annotations)
@@ -58,17 +59,7 @@ if __name__ == "__main__":
         node.attr["num_date"] = node.attr["numdate"]
 
     # Assign tips to seasons.
-    tips_assigned = set()
-    tips_by_season = {}
-    for season in seasons:
-        season_date = season.strftime("%Y-%m-%d")
-        season_float = timestamp_to_float(season)
-        tips_by_season[season_date] = []
-
-        for tip in tree.find_clades(terminal=True):
-            if tip.name not in tips_assigned and tip.attr["num_date"] < season_float:
-                tips_assigned.add(tip.name)
-                tips_by_season[season_date].append(tip)
+    tips_by_season = get_tips_by_season(tree, seasons)
 
     # Store the mean pairwise distance between seasons for one or more distance
     # maps (e.g., epitope sites, non-epitope sites, etc.).

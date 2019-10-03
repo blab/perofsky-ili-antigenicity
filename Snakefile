@@ -142,6 +142,7 @@ def _get_distance_maps_by_lineage_and_segment(wildcards):
 
 rule all:
     input:
+        mean_lbi = expand("results/{region}_mean_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         mean_distances = expand("results/{region}_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         auspice_tables = expand("auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         auspice = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
@@ -697,6 +698,31 @@ rule mean_seasonal_distances:
             --seasons-away-to-compare {params.seasons_away_to_compare} \
             --output {output.distances} \
             --strain-output {output.pairwise_distances} &> {log}
+        """
+
+rule mean_seasonal_lbi:
+    input:
+        tree = rules.refine.output.tree,
+        date_annotations = rules.refine.output.node_data
+    params:
+        start_date = "1997-07-01",
+        end_date = "2018-07-01",
+        interval = 12
+    output:
+        mean_lbi = "results/{region}_mean_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv",
+        lbi_by_strain = "results/{region}_strain_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv"
+    log: "logs/mean_seasonal_lbi_{region}_{lineage}_{segment}_{resolution}.txt"
+    conda: "envs/nextstrain.yaml"
+    shell:
+        """
+        python3 scripts/mean_seasonal_lbi.py \
+            --tree {input.tree} \
+            --date-annotations {input.date_annotations} \
+            --start-date {params.start_date} \
+            --end-date {params.end_date} \
+            --interval {params.interval} \
+            --output {output.mean_lbi} \
+            --strain-output {output.lbi_by_strain} &> {log}
         """
 
 rule lbi:
