@@ -100,7 +100,7 @@ if __name__ == "__main__":
             }
 
             for attribute in args.attributes:
-                record[attribute] = node.attr[attribute]
+                record[attribute] = node.attr.get(attribute, "N/A")
 
             records.append(record)
 
