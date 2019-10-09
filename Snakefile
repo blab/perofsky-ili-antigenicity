@@ -610,8 +610,8 @@ rule seasonal_distances:
     params:
         genes = gene_names,
         attribute_names = _get_seasonal_distance_attributes_by_lineage_and_segment,
-        start_date = "1997-07-01",
-        end_date = "2018-07-01",
+        start_date = config["distance_start_date"],
+        end_date = config["distance_end_date"],
         interval = 12,
         months_prior_to_season = 12
     output:
@@ -674,8 +674,8 @@ rule mean_seasonal_distances:
     params:
         genes = gene_names,
         attribute_names = _get_seasonal_distance_attributes_by_lineage_and_segment,
-        start_date = "1997-07-01",
-        end_date = "2018-07-01",
+        start_date = config["distance_start_date"],
+        end_date = config["distance_end_date"],
         interval = 12,
         seasons_away_to_compare = 2
     output:
@@ -705,8 +705,8 @@ rule mean_seasonal_lbi:
         tree = rules.refine.output.tree,
         date_annotations = rules.refine.output.node_data
     params:
-        start_date = "1997-07-01",
-        end_date = "2018-07-01",
+        start_date = config["distance_start_date"],
+        end_date = config["distance_end_date"],
         interval = 12
     output:
         mean_lbi = "results/{region}_mean_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv",
