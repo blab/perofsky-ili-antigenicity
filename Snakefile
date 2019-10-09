@@ -12,14 +12,14 @@ wildcard_constraints:
     bandwidth="[0-9]*\.?[0-9]+",
     lineage="[a-z0-9]+",
     segment="[a-z]+[0-9]?",
-    region="[a-z_]+",
+    region="[-a-z_]+",
     resolution="\d+y"
 
 path_to_fauna = '../fauna'
 segments = ['ha']
 lineages = ['h3n2']
 resolutions = ['21y']
-regions = ["global", "north_america"]
+regions = ["global", "north-america"]
 frequency_regions = ['north_america', 'south_america', 'europe', 'china',
                      'southeast_asia', 'japan_korea', 'south_asia', 'africa']
 
