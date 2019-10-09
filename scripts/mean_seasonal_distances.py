@@ -16,7 +16,7 @@ import pandas as pd
 import pprint
 import sys
 
-from utils import get_seasons, get_tips_by_season
+from utils import get_seasons, get_nodes_by_season
 
 
 if __name__ == "__main__":
@@ -59,7 +59,7 @@ if __name__ == "__main__":
         node.attr["num_date"] = node.attr["numdate"]
 
     # Assign tips to seasons.
-    tips_by_season = get_tips_by_season(tree, seasons)
+    tips_by_season = get_nodes_by_season(tree, seasons, terminal_only=True)
 
     # Store the mean pairwise distance between seasons for one or more distance
     # maps (e.g., epitope sites, non-epitope sites, etc.).
