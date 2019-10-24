@@ -27,5 +27,8 @@
     "mean_seasonal_distances": {
         "time": "2:00:00",
         "memory": "4096"
+    },
+    "export": {
+        "memory": "16384"
     }
 }

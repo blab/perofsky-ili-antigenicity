@@ -822,7 +822,8 @@ rule export:
             --node-data {input.node_data} \
             --auspice-config {input.auspice_config} \
             --output-tree {output.auspice_tree} \
-            --output-meta {output.auspice_meta}
+            --output-meta {output.auspice_meta} \
+            --minify-json
         """
 
 rule convert_tree_to_table:
