@@ -1,8 +1,8 @@
 {
     "start_date": "1997-01-01",
     "end_date": "2019-10-01",
-    "distance_start_date": "1997-07-01",
-    "distance_end_date": "2019-07-01",
+    "distance_start_date": "1996-07-01",
+    "distance_end_date": "2020-07-01",
     "attributes_to_export": "date num_date ep ep_seasonal ne ne_seasonal rb rb_seasonal stem stem_seasonal cTiter cTiterSub cTiterSub_seasonal region country SigPep HA1 HA2",
     "min_length": 900,
     "pivot_interval": 6,
