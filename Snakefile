@@ -642,9 +642,9 @@ rule seasonal_titer_distances:
     params:
         genes = gene_names,
         attribute_names = "cTiterSub_seasonal",
-        start_date = "1997-04-01",
-        end_date = "2019-04-01",
-        interval = 6,
+        start_date = config["distance_start_date"],
+        end_date = config["distance_end_date"],
+        interval = 12,
         months_prior_to_season = 12
     output:
         distances = "results/{region}/seasonal_titer_distances_{lineage}_{segment}_{resolution}.json"
