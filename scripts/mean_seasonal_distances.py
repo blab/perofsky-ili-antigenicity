@@ -61,6 +61,10 @@ if __name__ == "__main__":
     # Assign tips to seasons.
     tips_by_season = get_nodes_by_season(tree, seasons, terminal_only=True)
 
+    # Build a list of season keys for iteration downstream. These are pairs of
+    # dates representing the start and end of each season.
+    season_keys = sorted(tips_by_season.keys())
+
     # Store the mean pairwise distance between seasons for one or more distance
     # maps (e.g., epitope sites, non-epitope sites, etc.).
     mean_seasonal_distances = []
@@ -69,19 +73,20 @@ if __name__ == "__main__":
         # Load the given distance map.
         distance_map = read_distance_map(distance_map_file)
 
-        for current_season_index, current_season in enumerate(seasons):
-            current_season_date = current_season.strftime("%Y-%m-%d")
-            for other_season in seasons[current_season_index:current_season_index + args.seasons_away_to_compare + 1]:
-                other_season_date = other_season.strftime("%Y-%m-%d")
-                print("Compare %s to %s with %s map" % (current_season_date, other_season_date, distance_map["name"]), flush=True)
+        for current_season_index, (current_season_start_date, current_season_end_date) in enumerate(season_keys):
+            other_season_start_index = current_season_index
+            other_season_end_index = current_season_index + args.seasons_away_to_compare + 1
+
+            for other_season_start_date, other_season_end_date in season_keys[other_season_start_index:other_season_end_index]:
+                print("Compare %s to %s with %s map" % (current_season_start_date, other_season_start_date, distance_map["name"]), flush=True)
                 total_distance = 0
                 total_comparisons = 0
-                total_other_season_tips = float(len(tips_by_season[other_season_date]))
+                total_other_season_tips = float(len(tips_by_season[(other_season_start_date, other_season_end_date)]))
 
-                for current_season_tip in tips_by_season[current_season_date]:
+                for current_season_tip in tips_by_season[(current_season_start_date, current_season_end_date)]:
                     current_tip_distance = 0
 
-                    for other_season_tip in tips_by_season[other_season_date]:
+                    for other_season_tip in tips_by_season[(other_season_start_date, other_season_end_date)]:
                         current_tip_distance += get_distance_between_nodes(
                             sequences_by_node_and_gene[current_season_tip.name],
                             sequences_by_node_and_gene[other_season_tip.name],
@@ -92,16 +97,20 @@ if __name__ == "__main__":
                     total_distance += current_tip_distance
                     if args.strain_output:
                         pairwise_seasonal_distances.append((
-                            current_season_date,
-                            other_season_date,
+                            current_season_start_date,
+                            current_season_end_date,
+                            other_season_start_date,
+                            other_season_end_date,
                             distance_map["name"],
                             current_season_tip.name,
                             current_tip_distance / total_other_season_tips
                         ))
 
                 mean_seasonal_distances.append([
-                    current_season_date,
-                    other_season_date,
+                    current_season_start_date,
+                    current_season_end_date,
+                    other_season_start_date,
+                    other_season_end_date,
                     distance_map["name"],
                     total_distance,
                     total_comparisons,
@@ -111,7 +120,7 @@ if __name__ == "__main__":
     # Export distances to a table.
     df = pd.DataFrame(
         mean_seasonal_distances,
-        columns=["current_season", "other_season", "distance_map", "total_distance", "total_comparisons", "mean_distance"]
+        columns=["current_season_start", "current_season_end", "other_season_start", "other_season_end", "distance_map", "total_distance", "total_comparisons", "mean_distance"]
     )
     df.to_csv(args.output, sep="\t", float_format="%.2f", index=False)
 
@@ -119,6 +128,6 @@ if __name__ == "__main__":
         # Export all pairwise distances to a table.
         pairwise_df = pd.DataFrame(
             pairwise_seasonal_distances,
-            columns=["current_season", "other_season", "distance_map", "current_strain", "mean_distance"]
+            columns=["current_season_start", "current_season_end", "other_season_start", "other_season_end", "distance_map", "current_strain", "mean_distance"]
         )
         pairwise_df.to_csv(args.strain_output, sep="\t", float_format="%.2f", index=False)

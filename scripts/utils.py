@@ -2,6 +2,8 @@
 Utilities shared by scripts
 """
 from augur.frequency_estimators import timestamp_to_float
+from collections import defaultdict
+import numpy as np
 import pandas as pd
 
 
@@ -46,18 +48,24 @@ def get_nodes_by_season(tree, seasons, terminal_only=True):
     dict :
         a map of node instances to season date strings (in YYYY-MM-DD format)
     """
-    nodes_assigned = set()
-    nodes_by_season = {}
+    nodes_by_season = defaultdict(list)
     terminal = True if terminal_only else None
 
-    for season in seasons:
-        season_date = season.strftime("%Y-%m-%d")
-        season_float = timestamp_to_float(season)
-        nodes_by_season[season_date] = []
+    # Create a list of season floating point dates to search.
+    season_floats = [timestamp_to_float(season) for season in seasons]
 
-        for node in tree.find_clades(terminal=terminal):
-            if node.name not in nodes_assigned and node.attr["num_date"] < season_float:
-                nodes_assigned.add(node.name)
-                nodes_by_season[season_date].append(node)
+    # Create a list of season keys to track nodes by including the start and end date.
+    season_keys = [
+        (season_start.strftime("%Y-%m-%d"), season_end.strftime("%Y-%m-%d"))
+        for season_start, season_end in zip(seasons[:-1], seasons[1:])
+    ]
+
+    for node in tree.find_clades(terminal=terminal):
+        # Find the season for the current node. This is the insertion index of
+        # the node in the array of season float values minus one, so we get the
+        # start date of the season.
+        index = np.searchsorted(season_floats, node.attr["num_date"]) - 1
+        if 0 <= index < len(season_keys):
+            nodes_by_season[season_keys[index]].append(node)
 
     return nodes_by_season

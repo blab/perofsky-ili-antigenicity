@@ -41,12 +41,15 @@ if __name__ == "__main__":
 
     # Store the LBI per strain and season.
     strain_and_season_lbi = []
+    for current_season_start, current_season_end in zip(seasons[:-1], seasons[1:]):
+        current_season_key = (
+            current_season_start.strftime("%Y-%m-%d"),
+            current_season_end.strftime("%Y-%m-%d")
+        )
 
-    for current_season in seasons:
-        current_season_date = current_season.strftime("%Y-%m-%d")
         for node in tree.find_clades():
             # Nodes are alive if they are assigned to the current season.
-            node.alive = node in nodes_by_season[current_season_date]
+            node.alive = node in nodes_by_season[current_season_key]
 
             # Clear any existing LBI annotations.
             if hasattr(node, "lbi"):
@@ -56,11 +59,12 @@ if __name__ == "__main__":
         calculate_LBI(tree, normalize=False)
 
         # Collect LBI annotations for tips alive in this season.
-        for node in nodes_by_season[current_season_date]:
+        for node in nodes_by_season[current_season_key]:
             if node.is_terminal():
                 strain_and_season_lbi.append({
                     "strain": node.name,
-                    "season": current_season_date,
+                    "season_start": current_season_key[0],
+                    "season_end": current_season_key[1],
                     "lbi": node.lbi
                 })
 
@@ -69,5 +73,5 @@ if __name__ == "__main__":
     df.to_csv(args.strain_output, sep="\t", float_format="%.4f", index=False)
 
     # Summarize LBI by season.
-    lbi_by_season = df.groupby("season")["lbi"].aggregate(["mean", "std", "count"]).reset_index()
+    lbi_by_season = df.groupby(["season_start", "season_end"])["lbi"].aggregate(["mean", "std", "count"]).reset_index()
     lbi_by_season.to_csv(args.output, sep="\t", float_format="%.4f", index=False)
