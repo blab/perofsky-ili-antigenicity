@@ -12,11 +12,11 @@ wildcard_constraints:
     bandwidth="[0-9]*\.?[0-9]+",
     lineage="[a-z0-9]+",
     segment="[a-z]+[0-9]?",
-    region="[-a-z_]+",
+    region="[-a-z]+",
     resolution="\d+y"
 
 path_to_fauna = '../fauna'
-segments = ['ha']
+segments = ['ha', 'na']
 lineages = ['h3n2']
 resolutions = ['21y']
 regions = ["global", "north-america"]
@@ -146,7 +146,7 @@ rule all:
         mean_distances = expand("results/{region}_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         auspice_tables = expand("auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         auspice = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
-        auspice_frequencies = expand("auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_tip-frequencies.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions)
+        auspice_frequencies = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_tip-frequencies.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions)
 
 rule files:
     params:
@@ -155,6 +155,7 @@ rule files:
         reference = "config/reference_{lineage}_{segment}.gb",
         colors = "config/colors.tsv",
         auspice_config = "config/auspice_config.json",
+        vaccine_json = "config/vaccines_{lineage}.json"
 
 files = rules.files.params
 
@@ -164,11 +165,10 @@ rule download_sequences:
         sequences = "data/{lineage}_{segment}.fasta"
     params:
         fasta_fields = "strain virus accession collection_date region country division location passage_category submitting_lab age gender"
-    conda: "envs/nextstrain.python2.yaml"
+    conda: "envs/nextstrain.yaml"
     shell:
         """
-        env PYTHONPATH={path_to_fauna} \
-            python2 {path_to_fauna}/vdb/download.py \
+        python3 {path_to_fauna}/vdb/download.py \
                 --database vdb \
                 --virus flu \
                 --fasta_fields {params.fasta_fields} \
@@ -449,7 +449,7 @@ rule translate:
             --tree {input.tree} \
             --ancestral-sequences {input.node_data} \
             --reference-sequence {input.reference} \
-            --output {output.node_data} \
+            --output-node-data {output.node_data} \
         """
 
 rule reconstruct_translations:
@@ -762,7 +762,7 @@ rule tip_frequencies:
         max_date = MAX_DATE,
         pivot_interval = config["pivot_interval"]
     output:
-        tip_freq = "auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_tip-frequencies.json"
+        tip_freq = "auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_tip-frequencies.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -809,26 +809,25 @@ rule export:
         tree = rules.refine.output.tree,
         metadata = rules.parse.output.metadata,
         auspice_config = files.auspice_config,
+        vaccines = files.vaccine_json,
         node_data = _get_node_data_for_export
     output:
-        auspice_tree = "auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_tree.json",
-        auspice_meta = "auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_meta.json"
+        auspice_main = "auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
-        augur export \
+        augur export v2 \
             --tree {input.tree} \
             --metadata {input.metadata} \
-            --node-data {input.node_data} \
+            --node-data {input.vaccines} {input.node_data} \
             --auspice-config {input.auspice_config} \
-            --output-tree {output.auspice_tree} \
-            --output-meta {output.auspice_meta} \
+            --output {output.auspice_main} \
             --minify-json
         """
 
 rule convert_tree_to_table:
     input:
-        tree = rules.export.output.auspice_tree
+        tree = rules.export.output.auspice_main
     output:
         table = "auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.tsv"
     params:
@@ -840,21 +839,6 @@ rule convert_tree_to_table:
             {input.tree} \
             {output} \
             --attributes {params.attributes}
-        """
-
-rule merge_auspice_jsons:
-    input:
-        tree = rules.export.output.auspice_tree,
-        metadata = rules.export.output.auspice_meta
-    output:
-        table = "auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.json"
-    conda: "envs/nextstrain.yaml"
-    shell:
-        """
-        python3 scripts/merge_auspice_jsons.py \
-            {input.tree} \
-            {input.metadata} \
-            {output}
         """
 
 rule clean:
