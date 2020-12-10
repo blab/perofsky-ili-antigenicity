@@ -299,7 +299,7 @@ rule select_strains:
     output:
         strains = "results/{region}/strains_{lineage}_{resolution}.txt",
     log:
-        "log/strains_{region}_{lineage}_{resolution}.txt"
+        "logs/strains_{region}_{lineage}_{resolution}.txt"
     params:
         start_date = config["start_date"],
         end_date = config["end_date"],
