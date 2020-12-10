@@ -298,10 +298,13 @@ rule select_strains:
         include = files.references
     output:
         strains = "results/{region}/strains_{lineage}_{resolution}.txt",
+    log:
+        "log/strains_{region}_{lineage}_{resolution}.txt"
     params:
         start_date = config["start_date"],
         end_date = config["end_date"],
-        viruses_per_month = vpm
+        viruses_per_month = vpm,
+        region = lambda wildcards: wildcards.region.replace("-", "_")
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -314,8 +317,8 @@ rule select_strains:
             --time-interval {params.start_date} {params.end_date} \
             --viruses_per_month {params.viruses_per_month} \
             --titers {input.titers} \
-            --priority-region {wildcards.region} \
-            --output {output.strains}
+            --priority-region {params.region} \
+            --output {output.strains} &> {log}
         """
 
 rule extract:
