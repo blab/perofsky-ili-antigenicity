@@ -791,17 +791,24 @@ def _get_node_data_for_export(wildcards):
     inputs = [
         rules.refine.output.node_data,
         rules.ancestral.output.node_data,
-        rules.translate.output.node_data,
-        rules.titers_tree.output.titers_model,
-        rules.titers_sub.output.titers_model
+        rules.translate.output.node_data
     ] + translations_jsons(wildcards)
+
+    # Only run titer rules for segments with titer data.
+    if wildcards.segment == "ha":
+        inputs.extend([
+            rules.titers_tree.output.titers_model,
+            rules.titers_sub.output.titers_model
+        ])
 
     # Only request a distance file for builds that have mask configurations
     # defined.
     if _get_build_mask_config(wildcards) is not None:
         inputs.append(rules.distances.output.distances)
         inputs.append(rules.seasonal_distances.output.distances)
-        inputs.append(rules.seasonal_titer_distances.output.distances)
+
+        if wildcards.segment == "ha":
+            inputs.append(rules.seasonal_titer_distances.output.distances)
 
     # Convert input files from wildcard strings to real file names.
     inputs = [input_file.format(**wildcards) for input_file in inputs]
