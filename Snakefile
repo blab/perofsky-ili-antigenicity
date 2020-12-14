@@ -348,7 +348,7 @@ rule align:
     output:
         alignment = "results/{region}/aligned_{lineage}_{segment}_{resolution}.fasta"
     conda: "envs/nextstrain.yaml"
-    threads: 4
+    threads: 8
     shell:
         """
         augur align \
@@ -367,7 +367,7 @@ rule tree:
     output:
         tree = "results/{region}/tree-raw_{lineage}_{segment}_{resolution}.nwk"
     conda: "envs/nextstrain.yaml"
-    threads: 4
+    threads: 8
     shell:
         """
         augur tree \
