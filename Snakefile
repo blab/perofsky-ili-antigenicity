@@ -433,7 +433,7 @@ rule ancestral:
         augur ancestral \
             --tree {input.tree} \
             --alignment {input.alignment} \
-            --output {output.node_data} \
+            --output-node-data {output.node_data} \
             --inference {params.inference}
         """
 
@@ -832,7 +832,8 @@ rule export:
             --node-data {input.vaccines} {input.node_data} \
             --auspice-config {input.auspice_config} \
             --output {output.auspice_main} \
-            --minify-json
+            --minify-json \
+            --include-root-sequence
         """
 
 rule convert_tree_to_table:
