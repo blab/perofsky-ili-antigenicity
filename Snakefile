@@ -839,13 +839,18 @@ rule export:
             --color-by-metadata {params.color_by_fields}
         """
 
+
+def _get_attributes_to_export(wildcards):
+    return config["attributes_to_export_%s" % wildcards.segment]
+
+
 rule convert_tree_to_table:
     input:
         tree = rules.export.output.auspice_main
     output:
         table = "auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.tsv"
     params:
-        attributes = config["attributes_to_export"]
+        attributes = _get_attributes_to_export
     conda: "envs/nextstrain.yaml"
     shell:
         """
