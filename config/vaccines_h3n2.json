@@ -2,27 +2,27 @@
     "nodes": {
         "A/Nanchang/933/1995": {
             "vaccine": {
-                "selection_date": ""
+                "selection_date": "1997-02-28"
             }
         },
         "A/Wuhan/359/1995": {
             "vaccine": {
-                "selection_date": ""
+                "selection_date": "1996-02-23"
             }
         },
         "A/Sydney/5/1997": {
             "vaccine": {
-                "selection_date": ""
+                "selection_date": "1998-02-27"
             }
         },
         "A/Panama/2007/1999": {
             "vaccine": {
-                "selection_date": ""
+                "selection_date": "2000-02-25"
             }
         },
         "A/Moscow/10/1999": {
             "vaccine": {
-                "selection_date": ""
+                "selection_date": "1999-10-01"
             }
         },
         "A/Fujian/411/2002": {
@@ -41,9 +41,9 @@
             },
             "aa_sequence": "MKTIIALSYILCLVFAQKLPGNDNSTATLCLGHHAVPNGTIVKTITNDQIEVTNATELVQSSSTGGICDSPHQILDGENCTLIDALLGDPQCDGFQNKKWDLFVERSKAYSNCYPYDVPDYASLRSLVASSGTLEFNNESFNWTGVTQNGTSSACKRRSNKSFFSRLNWLTHLKFKYPALNVTMPNNEKFDKLYIWGVHHPGTDNDQISLYAQASGRITVSTKRSQQTVIPNIGSRPRVRDVPSRISIYWTIVKPGDILLINSTGNLIAPRGYFKIRSGKSSIMRSDAPIGKCNSECITPNGSIPNDKPFQNVNRITYGACPRYVKQNTLKLATGMRNVPEKQTRGIFGAIAGFIENGWEGMVDGWYGFRHQNSEGTGQAADLKSTQAAINQINGKLNRLIGKTNEKFHQIEKEFSEVEGRIQDLEKYVEDTKIDLWSYNAELLVALENQHTIDLTDSEMNKLFERTKKQLRENAEDMGNGCFKIYHKCDNACIGSIRNGTYDHDVYRDEALNNRFQIKGVELKSGYKDWILWISFAISCFLLCVALLGFIMWACQKGNIRCNICI"
         },
-        "A/NewYork/55/2004" {
+        "A/NewYork/55/2004": {
             "vaccine": {
-                "selection_date": ""
+                "selection_date": "2004-10-08"
             }
         },
         "A/California/7/2004": {
