@@ -247,6 +247,9 @@ if __name__ == "__main__":
 
                 final_distances_by_node[node_name][attribute] = values
 
+                if compare_to == "vaccine":
+                    final_distances_by_node[node_name]["vaccine_strain"] = vaccines_by_season[season_date]
+
     # Prepare params for export.
     params = {
         "attribute": args.attribute_name,
