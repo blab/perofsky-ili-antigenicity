@@ -1,18 +1,13 @@
 name: nextstrain
 channels:
-- bioconda
 - conda-forge
+- bioconda
 - defaults
 dependencies:
-- conda
-- cvxopt
-- fasttree
-- iqtree
-- mafft
-- pandas
+- augur=10.1.1
 - python=3.6*
-- raxml
-- snakemake
+- nodejs=10
+- pip
 - pip:
-  - nextstrain-augur==5.1.0
+  - nextstrain-cli
   - rethinkdb==2.2.0.post6

@@ -1,79 +1,10 @@
 import argparse
+from augur.utils import json_to_tree
 import Bio
 import Bio.Phylo
 import json
 import pandas as pd
-
-
-# Biopython's trees don't store links to node parents, so we need to build
-# a map of each node to its parent.
-# Code from the Bio.Phylo cookbook: http://biopython.org/wiki/Phylo_cookbook
-def all_parents(tree):
-    parents = {}
-    for clade in tree.find_clades(order='level'):
-        for child in clade:
-            parents[child] = clade
-    return parents
-
-
-def annotate_parents(tree):
-    # Get all parent nodes by node.
-    parents_by_node = all_parents(tree)
-
-    # Next, annotate each node with its parent.
-    for node in tree.find_clades():
-        if node == tree.root:
-            node.up = None
-        else:
-            node.up = parents_by_node[node]
-
-    # Return the tree.
-    return tree
-
-
-def json_to_tree(json_dict, root=True):
-    """Returns a Bio.Phylo tree corresponding to the given JSON dictionary exported
-    by `tree_to_json`.
-
-    Assigns links back to parent nodes for the root of the tree.
-
-    >>> import json
-    >>> json_fh = open("tests/data/json_tree_to_nexus/flu_h3n2_ha_3y_tree.json", "r")
-    >>> json_dict = json.load(json_fh)
-    >>> tree = json_to_tree(json_dict)
-    >>> tree.name
-    u'NODE_0002020'
-    >>> len(tree.clades)
-    2
-    >>> tree.clades[0].name
-    u'NODE_0001489'
-    >>> hasattr(tree, "attr")
-    True
-    >>> "dTiter" in tree.attr
-    True
-    """
-    node = Bio.Phylo.Newick.Clade()
-    node.name = json_dict["strain"]
-
-    if "children" in json_dict:
-        # Recursively add children to the current node.
-        node.clades = [json_to_tree(child, root=False) for child in json_dict["children"]]
-
-    # Assign all non-children attributes.
-    for attr, value in json_dict.items():
-        if attr != "children":
-            setattr(node, attr, value)
-
-    node.numdate = node.attr.get("num_date")
-    node.branch_length = node.attr.get("div")
-
-    if "translations" in node.attr:
-        node.translations = node.attr["translations"]
-
-    if root:
-        node = annotate_parents(node)
-
-    return node
+import sys
 
 
 if __name__ == "__main__":
@@ -91,7 +22,11 @@ if __name__ == "__main__":
 
     tree = json_to_tree(tree_json)
 
-    # Collect attributes per node from the tree to export.
+    if args.attributes:
+        attributes = args.attributes
+    else:
+        attributes = sorted(list(tree.root.node_attr.keys()) + list(tree.root.branch_attrs.keys()))
+
     records = []
     for node in tree.find_clades():
         if node.is_terminal() or args.include_internal_nodes:
@@ -99,8 +34,13 @@ if __name__ == "__main__":
                 "name": node.name
             }
 
-            for attribute in args.attributes:
-                record[attribute] = node.attr.get(attribute, "N/A")
+            for attribute in attributes:
+                if attribute in node.node_attrs:
+                    record[attribute] = node.node_attrs[attribute]["value"]
+                elif attribute in node.branch_attrs:
+                    record[attribute] = node.branch_attrs[attribute]["value"]
+                else:
+                    print(f"Attribute '{attribute}' missing from node '{node.name}'", file=sys.stderr)
 
             records.append(record)
 

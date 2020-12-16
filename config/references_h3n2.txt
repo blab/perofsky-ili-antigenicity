@@ -1,9 +1,17 @@
+A/Nanchang/933/1995
+A/Nanchang/933/1995-egg
+A/Wuhan/359/1995
+A/Wuhan/359/1995-egg
 A/Sydney/5/1997
 A/Sydney/5/1997-egg
+A/Panama/2007/1999
+A/Panama/2007/1999-egg
 A/Moscow/10/1999
 A/Moscow/10/1999-egg
 A/Fujian/411/2002
 A/Fujian/411/2002-egg
+A/NewYork/55/2004
+A/NewYork/55/2004-egg
 A/California/7/2004
 A/California/7/2004-egg
 A/Wisconsin/67/2005

@@ -12,11 +12,11 @@ wildcard_constraints:
     bandwidth="[0-9]*\.?[0-9]+",
     lineage="[a-z0-9]+",
     segment="[a-z]+[0-9]?",
-    region="[-a-z_]+",
+    region="[-a-z]+",
     resolution="\d+y"
 
 path_to_fauna = '../fauna'
-segments = ['ha']
+segments = ['ha', 'na']
 lineages = ['h3n2']
 resolutions = ['21y']
 regions = ["global", "north-america"]
@@ -146,7 +146,7 @@ rule all:
         mean_distances = expand("results/{region}_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         auspice_tables = expand("auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         auspice = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
-        auspice_frequencies = expand("auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_tip-frequencies.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions)
+        auspice_frequencies = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_tip-frequencies.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions)
 
 rule files:
     params:
@@ -155,6 +155,7 @@ rule files:
         reference = "config/reference_{lineage}_{segment}.gb",
         colors = "config/colors.tsv",
         auspice_config = "config/auspice_config.json",
+        vaccine_json = "config/vaccines_{lineage}.json"
 
 files = rules.files.params
 
@@ -164,11 +165,10 @@ rule download_sequences:
         sequences = "data/{lineage}_{segment}.fasta"
     params:
         fasta_fields = "strain virus accession collection_date region country division location passage_category submitting_lab age gender"
-    conda: "envs/nextstrain.python2.yaml"
+    conda: "envs/nextstrain.yaml"
     shell:
         """
-        env PYTHONPATH={path_to_fauna} \
-            python2 {path_to_fauna}/vdb/download.py \
+        python3 {path_to_fauna}/vdb/download.py \
                 --database vdb \
                 --virus flu \
                 --fasta_fields {params.fasta_fields} \
@@ -298,10 +298,13 @@ rule select_strains:
         include = files.references
     output:
         strains = "results/{region}/strains_{lineage}_{resolution}.txt",
+    log:
+        "logs/strains_{region}_{lineage}_{resolution}.txt"
     params:
         start_date = config["start_date"],
         end_date = config["end_date"],
-        viruses_per_month = vpm
+        viruses_per_month = vpm,
+        region = lambda wildcards: wildcards.region.replace("-", "_")
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -314,8 +317,8 @@ rule select_strains:
             --time-interval {params.start_date} {params.end_date} \
             --viruses_per_month {params.viruses_per_month} \
             --titers {input.titers} \
-            --priority-region {wildcards.region} \
-            --output {output.strains}
+            --priority-region {params.region} \
+            --output {output.strains} &> {log}
         """
 
 rule extract:
@@ -345,7 +348,7 @@ rule align:
     output:
         alignment = "results/{region}/aligned_{lineage}_{segment}_{resolution}.fasta"
     conda: "envs/nextstrain.yaml"
-    threads: 4
+    threads: 8
     shell:
         """
         augur align \
@@ -364,7 +367,7 @@ rule tree:
     output:
         tree = "results/{region}/tree-raw_{lineage}_{segment}_{resolution}.nwk"
     conda: "envs/nextstrain.yaml"
-    threads: 4
+    threads: 8
     shell:
         """
         augur tree \
@@ -430,7 +433,7 @@ rule ancestral:
         augur ancestral \
             --tree {input.tree} \
             --alignment {input.alignment} \
-            --output {output.node_data} \
+            --output-node-data {output.node_data} \
             --inference {params.inference}
         """
 
@@ -449,7 +452,7 @@ rule translate:
             --tree {input.tree} \
             --ancestral-sequences {input.node_data} \
             --reference-sequence {input.reference} \
-            --output {output.node_data} \
+            --output-node-data {output.node_data} \
         """
 
 rule reconstruct_translations:
@@ -665,6 +668,40 @@ rule seasonal_titer_distances:
             --output {output}
         """
 
+rule seasonal_vaccine_titer_distances:
+    input:
+        tree = rules.refine.output.tree,
+        alignments = translations,
+        distance_maps = rules.convert_titer_model_to_distance_map.output.distance_map,
+        date_annotations = rules.refine.output.node_data,
+        vaccines = "config/vaccines_h3n2.json"
+    params:
+        genes = gene_names,
+        attribute_names = "cTiterSub_seasonal_vaccine",
+        start_date = config["distance_start_date"],
+        end_date = config["distance_end_date"],
+        interval = 12,
+        months_prior_to_season = 12
+    output:
+        distances = "results/{region}/seasonal_vaccine_titer_distances_{lineage}_{segment}_{resolution}.json"
+    conda: "envs/nextstrain.yaml"
+    shell:
+        """
+        python3 scripts/seasonal_distance.py \
+            --tree {input.tree} \
+            --alignment {input.alignments} \
+            --gene-names {params.genes} \
+            --attribute-name {params.attribute_names} \
+            --map {input.distance_maps} \
+            --date-annotations {input.date_annotations} \
+            --start-date {params.start_date} \
+            --end-date {params.end_date} \
+            --interval {params.interval} \
+            --months-prior-to-season {params.months_prior_to_season} \
+            --vaccines {input.vaccines} \
+            --output {output}
+        """
+
 rule mean_seasonal_distances:
     input:
         tree = rules.refine.output.tree,
@@ -762,7 +799,7 @@ rule tip_frequencies:
         max_date = MAX_DATE,
         pivot_interval = config["pivot_interval"]
     output:
-        tip_freq = "auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_tip-frequencies.json"
+        tip_freq = "auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_tip-frequencies.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -788,17 +825,25 @@ def _get_node_data_for_export(wildcards):
     inputs = [
         rules.refine.output.node_data,
         rules.ancestral.output.node_data,
-        rules.translate.output.node_data,
-        rules.titers_tree.output.titers_model,
-        rules.titers_sub.output.titers_model
+        rules.translate.output.node_data
     ] + translations_jsons(wildcards)
+
+    # Only run titer rules for segments with titer data.
+    if wildcards.segment == "ha":
+        inputs.extend([
+            rules.titers_tree.output.titers_model,
+            rules.titers_sub.output.titers_model
+        ])
 
     # Only request a distance file for builds that have mask configurations
     # defined.
     if _get_build_mask_config(wildcards) is not None:
         inputs.append(rules.distances.output.distances)
         inputs.append(rules.seasonal_distances.output.distances)
-        inputs.append(rules.seasonal_titer_distances.output.distances)
+
+        if wildcards.segment == "ha":
+            inputs.append(rules.seasonal_titer_distances.output.distances)
+            inputs.append(rules.seasonal_vaccine_titer_distances.output.distances)
 
     # Convert input files from wildcard strings to real file names.
     inputs = [input_file.format(**wildcards) for input_file in inputs]
@@ -809,30 +854,38 @@ rule export:
         tree = rules.refine.output.tree,
         metadata = rules.parse.output.metadata,
         auspice_config = files.auspice_config,
+        vaccines = files.vaccine_json,
         node_data = _get_node_data_for_export
     output:
-        auspice_tree = "auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_tree.json",
-        auspice_meta = "auspice_split/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_meta.json"
+        auspice_main = "auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.json"
+    params:
+        color_by_fields = "date"
     conda: "envs/nextstrain.yaml"
     shell:
         """
-        augur export \
+        export AUGUR_RECURSION_LIMIT=10000 && augur export v2 \
             --tree {input.tree} \
             --metadata {input.metadata} \
-            --node-data {input.node_data} \
+            --node-data {input.vaccines} {input.node_data} \
             --auspice-config {input.auspice_config} \
-            --output-tree {output.auspice_tree} \
-            --output-meta {output.auspice_meta} \
-            --minify-json
+            --output {output.auspice_main} \
+            --minify-json \
+            --include-root-sequence \
+            --color-by-metadata {params.color_by_fields}
         """
+
+
+def _get_attributes_to_export(wildcards):
+    return config["attributes_to_export_%s" % wildcards.segment]
+
 
 rule convert_tree_to_table:
     input:
-        tree = rules.export.output.auspice_tree
+        tree = rules.export.output.auspice_main
     output:
         table = "auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.tsv"
     params:
-        attributes = config["attributes_to_export"]
+        attributes = _get_attributes_to_export
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -840,21 +893,6 @@ rule convert_tree_to_table:
             {input.tree} \
             {output} \
             --attributes {params.attributes}
-        """
-
-rule merge_auspice_jsons:
-    input:
-        tree = rules.export.output.auspice_tree,
-        metadata = rules.export.output.auspice_meta
-    output:
-        table = "auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.json"
-    conda: "envs/nextstrain.yaml"
-    shell:
-        """
-        python3 scripts/merge_auspice_jsons.py \
-            {input.tree} \
-            {input.metadata} \
-            {output}
         """
 
 rule clean:
