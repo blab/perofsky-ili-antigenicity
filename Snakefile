@@ -668,6 +668,40 @@ rule seasonal_titer_distances:
             --output {output}
         """
 
+rule seasonal_vaccine_titer_distances:
+    input:
+        tree = rules.refine.output.tree,
+        alignments = translations,
+        distance_maps = rules.convert_titer_model_to_distance_map.output.distance_map,
+        date_annotations = rules.refine.output.node_data,
+        vaccines = "config/vaccines_h3n2.json"
+    params:
+        genes = gene_names,
+        attribute_names = "cTiterSub_seasonal_vaccine",
+        start_date = config["distance_start_date"],
+        end_date = config["distance_end_date"],
+        interval = 12,
+        months_prior_to_season = 12
+    output:
+        distances = "results/{region}/seasonal_vaccine_titer_distances_{lineage}_{segment}_{resolution}.json"
+    conda: "envs/nextstrain.yaml"
+    shell:
+        """
+        python3 scripts/seasonal_distance.py \
+            --tree {input.tree} \
+            --alignment {input.alignments} \
+            --gene-names {params.genes} \
+            --attribute-name {params.attribute_names} \
+            --map {input.distance_maps} \
+            --date-annotations {input.date_annotations} \
+            --start-date {params.start_date} \
+            --end-date {params.end_date} \
+            --interval {params.interval} \
+            --months-prior-to-season {params.months_prior_to_season} \
+            --vaccines {input.vaccines} \
+            --output {output}
+        """
+
 rule mean_seasonal_distances:
     input:
         tree = rules.refine.output.tree,
@@ -809,6 +843,7 @@ def _get_node_data_for_export(wildcards):
 
         if wildcards.segment == "ha":
             inputs.append(rules.seasonal_titer_distances.output.distances)
+            inputs.append(rules.seasonal_vaccine_titer_distances.output.distances)
 
     # Convert input files from wildcard strings to real file names.
     inputs = [input_file.format(**wildcards) for input_file in inputs]

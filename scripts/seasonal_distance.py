@@ -11,11 +11,13 @@ import Bio
 import Bio.Phylo
 from collections import defaultdict
 import copy
+import datetime
 import json
 import numpy as np
 import pandas as pd
 import pprint
 import sys
+from treetime.utils import numeric_date
 
 
 def get_distances_to_last_ancestor_by_tips(tips, sequences_by_node_and_gene, distance_map, latest_date):
@@ -77,6 +79,49 @@ def get_distances_to_last_ancestor_by_tips(tips, sequences_by_node_and_gene, dis
     return distances_by_node
 
 
+def get_distances_to_vaccine_by_tips(tips, sequences_by_node_and_gene, distance_map, vaccine):
+    """Calculate distances between each sample in the given sequences and the
+    vaccine that was available in the season those sequences were circulating using
+    the given distance map.
+
+    Parameters
+    ----------
+    tips : list
+        a list of Bio.Phylo nodes for tips to find the ancestral distance to
+
+    sequences_by_node_and_gene : dict
+        nucleotide or amino acid sequences by node name and gene
+
+    distance_map : dict
+        site-specific and, optionally, sequence-specific distances between two
+        sequences
+
+    vaccine : str
+        name of the vaccine that was available in the season that the given tips
+        circulated
+
+    Returns
+    -------
+    dict :
+        distances calculated between each sample in the tree and its vaccine
+        sequence with distances indexed by node name
+
+    """
+    distances_by_node = {}
+
+    # Calculate distance between each tip and its closest ancestor in the last
+    # season as defined by the given latest date threshold.
+    for node in tips:
+        # Calculate distance between current node and its ancestor.
+        distances_by_node[node.name] = get_distance_between_nodes(
+            sequences_by_node_and_gene[vaccine],
+            sequences_by_node_and_gene[node.name],
+            distance_map
+        )
+
+    return distances_by_node
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--tree", help="Newick tree", required=True)
@@ -89,6 +134,7 @@ if __name__ == "__main__":
     parser.add_argument("--end-date", help="date to end seasonal intervals (e.g., 2010-10-01)", required=True)
     parser.add_argument("--interval", type=int, help="number of months per season", required=True)
     parser.add_argument("--months-prior-to-season", type=int, help="number of months prior to each season to look for a tip's ancestor", required=True)
+    parser.add_argument("--vaccines", help="JSON describing vaccine strains by selection date to use for seasonal distance calculations instead of the ancestor from the last season")
     parser.add_argument("--output", help="JSON file with calculated distances stored by node name and attribute name", required=True)
 
     args = parser.parse_args()
@@ -128,25 +174,59 @@ if __name__ == "__main__":
                 tips_assigned.add(tip.name)
                 tips_by_season[season_date].append(tip)
 
+    # If we're comparing to vaccine strains instead of last ancestors, assign
+    # vaccines to seasons by their selection dates.
+    if args.vaccines is not None:
+        vaccines = read_node_data(args.vaccines)
+        vaccine_dates_by_strain = {
+            strain: numeric_date(datetime.datetime.strptime(strain_data["vaccine"]["selection_date"], "%Y-%m-%d"))
+            for strain, strain_data in vaccines["nodes"].items()
+        }
+
+        vaccines_by_season = {}
+        for season in seasons:
+            season_date = season.strftime("%Y-%m-%d")
+            season_float = timestamp_to_float(season)
+
+            for vaccine, selection_date in vaccine_dates_by_strain.items():
+                if selection_date < season_float:
+                    vaccines_by_season[season_date] = vaccine
+
+        pprint.pprint(vaccines_by_season)
+        compare_to_list = ["vaccine"] * len(args.attribute_name)
+    else:
+        compare_to_list = ["ancestor"] * len(args.attribute_name)
+
     final_distances_by_node = {}
     distance_map_names = []
-    compare_to_list = ["ancestor"] * len(args.attribute_name)
     for compare_to, attribute, distance_map_file in zip(compare_to_list, args.attribute_name, args.map):
         # Load the given distance map.
         distance_map = read_distance_map(distance_map_file)
         distance_map_names.append(distance_map.get("name", distance_map_file))
 
         for season_date, tips in tips_by_season.items():
-            # Use the distance map to calculate distances between all samples in the
-            # given tree and their last ancestor in the previous season.
-            latest_date = pd.to_datetime(season_date) - pd.DateOffset(months=args.months_prior_to_season)
+            if compare_to == "ancestor":
+                # Use the distance map to calculate distances between all samples in the
+                # given tree and their last ancestor in the previous season.
+                latest_date = pd.to_datetime(season_date) - pd.DateOffset(months=args.months_prior_to_season)
 
-            distances_by_node = get_distances_to_last_ancestor_by_tips(
-                tips,
-                sequences_by_node_and_gene,
-                distance_map,
-                latest_date
-            )
+                distances_by_node = get_distances_to_last_ancestor_by_tips(
+                    tips,
+                    sequences_by_node_and_gene,
+                    distance_map,
+                    latest_date
+                )
+            elif compare_to == "vaccine":
+                print(f"Compare tips in season {season_date} to vaccine {vaccines_by_season[season_date]}")
+                distances_by_node = get_distances_to_vaccine_by_tips(
+                    tips,
+                    sequences_by_node_and_gene,
+                    distance_map,
+                    vaccines_by_season[season_date]
+                )
+            else:
+                print(f"Cannot compare tips with the requested method: {compare_to}", file=sys.stderr)
+                sys.exit(1)
 
             # Map distances to the requested attribute name.
             # Convert data like:
@@ -174,7 +254,8 @@ if __name__ == "__main__":
         "start_date": args.start_date,
         "end_date": args.end_date,
         "interval": args.interval,
-        "months_prior_to_season": args.months_prior_to_season
+        "months_prior_to_season": args.months_prior_to_season,
+        "vaccines": args.vaccines is not None
     }
 
     # Export distances to JSON.
