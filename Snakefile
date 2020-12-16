@@ -826,7 +826,7 @@ rule export:
     conda: "envs/nextstrain.yaml"
     shell:
         """
-        augur export v2 \
+        export AUGUR_RECURSION_LIMIT=10000 && augur export v2 \
             --tree {input.tree} \
             --metadata {input.metadata} \
             --node-data {input.vaccines} {input.node_data} \
