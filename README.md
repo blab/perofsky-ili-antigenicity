@@ -41,3 +41,7 @@ View builds on nextstrain.org:
  - [global, NA](https://nextstrain.org/staging/flu/seasonal/h3n2/na/21y/global)
  - [North America, HA](https://nextstrain.org/staging/flu/seasonal/h3n2/ha/21y/north-america)
  - [North America, NA](https://nextstrain.org/staging/flu/seasonal/h3n2/na/21y/north-america)
+
+## Summary statistics by strain and season
+
+Summary data per strain live in [auspice_tables/](auspice_tables/) per region and gene segment.
