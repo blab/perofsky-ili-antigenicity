@@ -3,7 +3,7 @@
     "end_date": "2019-10-01",
     "distance_start_date": "1996-07-01",
     "distance_end_date": "2020-07-01",
-    "attributes_to_export_ha": "date num_date ep ep_seasonal ne ne_seasonal rb rb_seasonal stem stem_seasonal cTiter cTiterSub cTiterSub_seasonal cTiterSub_seasonal_vaccine region country SigPep HA1 HA2 vaccine_strain",
+    "attributes_to_export_ha": "date num_date ep ep_seasonal ne ne_seasonal rb rb_seasonal stem stem_seasonal cTiter cTiterSub cTiter_seasonal cTiterSub_seasonal cTiter_seasonal_vaccine cTiterSub_seasonal_vaccine region country SigPep HA1 HA2 vaccine_strain",
     "attributes_to_export_na": "date num_date ep ep_seasonal ne ne_seasonal region country NA",
     "min_length": 900,
     "pivot_interval": 6,

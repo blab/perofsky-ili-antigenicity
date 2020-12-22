@@ -79,7 +79,63 @@ def get_distances_to_last_ancestor_by_tips(tips, sequences_by_node_and_gene, dis
     return distances_by_node
 
 
-def get_distances_to_vaccine_by_tips(tips, sequences_by_node_and_gene, distance_map, vaccine):
+def get_titer_tree_distances_to_ancestor_by_tips(tips, tree, latest_date):
+    """Calculate distances between each sample in the given list of tips and its
+    last ancestor in a previous season using the titer tree model annotations in
+    the given tree.
+
+    Parameters
+    ----------
+    tips : list
+        a list of Bio.Phylo nodes for tips to find the ancestral distance to
+
+    tree : Bio.Phylo
+        a tree annotated with titer tree model distances in the `dTiter` node attribute
+
+    latest_date : pandas.Timestamp
+        latest date to consider a node as a potential ancestor of a given
+        sample; used to define a previous season relative to the most recent
+        samples in the given tree.
+
+    Returns
+    -------
+    dict :
+        distances calculated between each sample in the tree and its last
+        ancestor sequence with distances indexed by node name
+
+    """
+    if latest_date is not None:
+        latest_date = timestamp_to_float(latest_date)
+
+    distances_by_node = {}
+
+    # Calculate distance between each tip and its closest ancestor in the last
+    # season as defined by the given latest date threshold.
+    for node in tips:
+        # If the given latest date is not None, skip nodes that were sampled
+        # prior to this date.
+        if latest_date is not None and node.attr["num_date"] < latest_date:
+            continue
+
+        # Find the closest ancestor of this node that was also sampled prior to
+        # the given latest date. Stop searching once we reach the root. If the
+        # latest date requested is None, the immediate parent of each node will
+        # be used.
+        parent = node.parent
+        while parent != tree.root and latest_date is not None and parent.attr["num_date"] > latest_date:
+            parent = parent.parent
+
+        # Calculate distance between current node and its ancestor.
+        distances_by_node[node.name] = get_titer_distance_between_nodes(
+            tree,
+            node,
+            parent
+        )
+
+    return distances_by_node
+
+
+def get_distances_to_vaccine_by_tips(tips, sequences_by_node_and_gene, distance_map, vaccine_strain):
     """Calculate distances between each sample in the given sequences and the
     vaccine that was available in the season those sequences were circulating using
     the given distance map.
@@ -96,7 +152,7 @@ def get_distances_to_vaccine_by_tips(tips, sequences_by_node_and_gene, distance_
         site-specific and, optionally, sequence-specific distances between two
         sequences
 
-    vaccine : str
+    vaccine_strain : str
         name of the vaccine that was available in the season that the given tips
         circulated
 
@@ -113,7 +169,7 @@ def get_distances_to_vaccine_by_tips(tips, sequences_by_node_and_gene, distance_
     # season as defined by the given latest date threshold.
     for node in tips:
         distances_by_node[node.name] = get_distance_between_nodes(
-            sequences_by_node_and_gene[vaccine],
+            sequences_by_node_and_gene[vaccine_strain],
             sequences_by_node_and_gene[node.name],
             distance_map
         )
@@ -122,6 +178,16 @@ def get_distances_to_vaccine_by_tips(tips, sequences_by_node_and_gene, distance_
 
 
 def get_titer_tree_distances_to_vaccine_by_tips(tips, tree, vaccine_strain):
+    """
+    tips : list
+        a list of Bio.Phylo nodes for tips to find the distance to
+
+    tree : Bio.Phylo
+        a tree annotated with titer tree model distances in the `dTiter` node attribute
+
+    vaccine_strain : str
+        name of the vaccine strain available in the season when the given tips circulated
+    """
     distances_by_node = {}
 
     # Get the vaccine strain node.
@@ -266,7 +332,6 @@ if __name__ == "__main__":
                 if selection_date < season_float:
                     vaccines_by_season[season_date] = vaccine
 
-        pprint.pprint(vaccines_by_season)
         compare_to_list = ["vaccine"] * len(args.attribute_name)
     else:
         compare_to_list = ["ancestor"] * len(args.attribute_name)
@@ -290,12 +355,19 @@ if __name__ == "__main__":
                 # given tree and their last ancestor in the previous season.
                 latest_date = pd.to_datetime(season_date) - pd.DateOffset(months=args.months_prior_to_season)
 
-                distances_by_node = get_distances_to_last_ancestor_by_tips(
-                    tips,
-                    sequences_by_node_and_gene,
-                    distance_map,
-                    latest_date
-                )
+                if args.titer_tree_model:
+                    distances_by_node = get_titer_tree_distances_to_ancestor_by_tips(
+                        tips,
+                        tree,
+                        latest_date
+                    )
+                else:
+                    distances_by_node = get_distances_to_last_ancestor_by_tips(
+                        tips,
+                        sequences_by_node_and_gene,
+                        distance_map,
+                        latest_date
+                    )
             elif compare_to == "vaccine":
                 print(f"Compare tips in season {season_date} to vaccine {vaccines_by_season[season_date]}")
 
