@@ -702,6 +702,36 @@ rule seasonal_vaccine_titer_distances:
             --output {output}
         """
 
+rule seasonal_vaccine_titer_tree_distances:
+    input:
+        tree = rules.refine.output.tree,
+        date_annotations = rules.refine.output.node_data,
+        titer_tree_model = rules.titers_tree.output.titers_model,
+        vaccines = "config/vaccines_h3n2.json"
+    params:
+        attribute_names = "cTiter_seasonal_vaccine",
+        start_date = config["distance_start_date"],
+        end_date = config["distance_end_date"],
+        interval = 12,
+        months_prior_to_season = 12
+    output:
+        distances = "results/{region}/seasonal_vaccine_titer_tree_distances_{lineage}_{segment}_{resolution}.json"
+    conda: "envs/nextstrain.yaml"
+    shell:
+        """
+        python3 scripts/seasonal_distance.py \
+            --tree {input.tree} \
+            --attribute-name {params.attribute_names} \
+            --date-annotations {input.date_annotations} \
+            --start-date {params.start_date} \
+            --end-date {params.end_date} \
+            --interval {params.interval} \
+            --months-prior-to-season {params.months_prior_to_season} \
+            --titer-tree-model {input.titer_tree_model} \
+            --vaccines {input.vaccines} \
+            --output {output}
+        """
+
 rule mean_seasonal_distances:
     input:
         tree = rules.refine.output.tree,

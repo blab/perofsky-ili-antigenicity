@@ -109,10 +109,9 @@ def get_distances_to_vaccine_by_tips(tips, sequences_by_node_and_gene, distance_
     """
     distances_by_node = {}
 
-    # Calculate distance between each tip and its closest ancestor in the last
+    # Calculate distance between each tip and its vaccine from the same
     # season as defined by the given latest date threshold.
     for node in tips:
-        # Calculate distance between current node and its ancestor.
         distances_by_node[node.name] = get_distance_between_nodes(
             sequences_by_node_and_gene[vaccine],
             sequences_by_node_and_gene[node.name],
@@ -122,35 +121,91 @@ def get_distances_to_vaccine_by_tips(tips, sequences_by_node_and_gene, distance_
     return distances_by_node
 
 
+def get_titer_tree_distances_to_vaccine_by_tips(tips, tree, vaccine_strain):
+    distances_by_node = {}
+
+    # Get the vaccine strain node.
+    vaccine_node = [
+        node
+        for node in tree.find_clades(terminal=True)
+        if node.name == vaccine_strain
+    ][0]
+
+    # Calculate titer tree distance between each tip and its vaccine from the
+    # same season as defined by the given latest date threshold.
+    for node in tips:
+        distances_by_node[node.name] = get_titer_distance_between_nodes(
+            tree,
+            vaccine_node,
+            node
+        )
+
+    return distances_by_node
+
+
+def get_titer_distance_between_nodes(tree, past_node, current_node, titer_attr="dTiter"):
+    # Find MRCA of tips from one tip up. Sum the titer attribute of interest
+    # while walking up to the MRCA, to avoid an additional pass later. The loop
+    # below stops when the past node is found in the list of the candidate
+    # MRCA's terminals. This test should always evaluate to true when the MRCA
+    # is the root node, so we should not have to worry about trying to find the
+    # parent of the root.
+    current_node_branch_sum = 0.0
+    mrca = current_node
+    while past_node.name not in mrca.terminals:
+        current_node_branch_sum += mrca.attr[titer_attr]
+        mrca = mrca.parent
+
+    # Sum the node weights for the other tip from the bottom up until we reach
+    # the MRCA. The value of the MRCA is intentionally excluded here, as it
+    # would represent the branch leading to the MRCA and would be outside the
+    # path between the two tips.
+    past_node_branch_sum = 0.0
+    current_node = past_node
+    while current_node != mrca:
+        past_node_branch_sum += current_node.attr[titer_attr]
+        current_node = current_node.parent
+
+    final_sum = past_node_branch_sum + current_node_branch_sum
+    return final_sum
+
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--tree", help="Newick tree", required=True)
-    parser.add_argument("--alignment", nargs="+", help="sequence(s) to be used, supplied as FASTA files", required=True)
-    parser.add_argument('--gene-names', nargs="+", type=str, help="names of the sequences in the alignment, same order assumed", required=True)
+    parser.add_argument("--alignment", nargs="+", help="sequence(s) to be used, supplied as FASTA files")
+    parser.add_argument('--gene-names', nargs="+", type=str, help="names of the sequences in the alignment, same order assumed")
     parser.add_argument("--attribute-name", nargs="+", help="name to store distances associated with the given distance map; multiple attribute names are linked to corresponding positional comparison method and distance map arguments", required=True)
-    parser.add_argument("--map", nargs="+", help="JSON providing the distance map between sites and, optionally, sequences present at those sites; the distance map JSON minimally requires a 'default' field defining a default numeric distance and a 'map' field defining a dictionary of genes and one-based coordinates", required=True)
+    parser.add_argument("--map", nargs="+", help="JSON providing the distance map between sites and, optionally, sequences present at those sites; the distance map JSON minimally requires a 'default' field defining a default numeric distance and a 'map' field defining a dictionary of genes and one-based coordinates")
     parser.add_argument("--date-annotations", help="JSON of branch lengths and date annotations from augur refine for samples in the given tree; required for comparisons to earliest or latest date", required=True)
     parser.add_argument("--start-date", help="date to start seasonal intervals (e.g., 2000-10-01)", required=True)
     parser.add_argument("--end-date", help="date to end seasonal intervals (e.g., 2010-10-01)", required=True)
     parser.add_argument("--interval", type=int, help="number of months per season", required=True)
     parser.add_argument("--months-prior-to-season", type=int, help="number of months prior to each season to look for a tip's ancestor", required=True)
     parser.add_argument("--vaccines", help="JSON describing vaccine strains by selection date to use for seasonal distance calculations instead of the ancestor from the last season")
+    parser.add_argument("--titer-tree-model", help="JSON representing titer tree model mapping weights to branches in the given tree")
     parser.add_argument("--output", help="JSON file with calculated distances stored by node name and attribute name", required=True)
 
     args = parser.parse_args()
+
+    if args.alignment is None and args.titer_tree_model is None:
+        print("Error: You must define either an alignment or titer tree model to use for distance calculations.", file=sys.stderr)
+        sys.exit(1)
 
     # Load tree and annotate parents.
     tree = Bio.Phylo.read(args.tree, "newick")
     tree = annotate_parents_for_tree(tree)
 
     # Load sequences.
-    alignments = load_alignments(args.alignment, args.gene_names)
+    if args.alignment and args.gene_names:
+        alignments = load_alignments(args.alignment, args.gene_names)
 
-    # Index sequences by node name and gene.
-    sequences_by_node_and_gene = defaultdict(dict)
-    for gene, alignment in alignments.items():
-        for record in alignment:
-            sequences_by_node_and_gene[record.name][gene] = str(record.seq)
+        # Index sequences by node name and gene.
+        sequences_by_node_and_gene = defaultdict(dict)
+        for gene, alignment in alignments.items():
+            for record in alignment:
+                sequences_by_node_and_gene[record.name][gene] = str(record.seq)
 
     # Create season intervals.
     seasons = pd.date_range(args.start_date, args.end_date, freq="%iMS" % args.interval)
@@ -160,6 +215,25 @@ if __name__ == "__main__":
     for node in tree.find_clades():
         node.attr = date_annotations["nodes"][node.name]
         node.attr["num_date"] = node.attr["numdate"]
+
+    # Load titer model annotations, if they have been provided.
+    if args.titer_tree_model:
+        titer_annotations = read_node_data(args.titer_tree_model)
+        for node in tree.find_clades():
+            node.attr["dTiter"] = titer_annotations["nodes"][node.name]["dTiter"]
+
+        # Make a single pass through the tree in postorder to store a set of all
+        # terminals descending from each node. This uses more memory, but it
+        # allows faster identification of MRCAs between any pair of tips in the
+        # tree and speeds up pairwise distance calculations by orders of
+        # magnitude.
+        for node in tree.find_clades(order="postorder"):
+            node.terminals = set()
+            for child in node.clades:
+                if child.is_terminal():
+                    node.terminals.add(child.name)
+                else:
+                    node.terminals.update(child.terminals)
 
     # Assign tips to seasons.
     tips_assigned = set()
@@ -197,12 +271,18 @@ if __name__ == "__main__":
     else:
         compare_to_list = ["ancestor"] * len(args.attribute_name)
 
+    if args.map is not None:
+        maps = args.map
+    else:
+        maps = [None] * len(args.attribute_name)
+
     final_distances_by_node = {}
     distance_map_names = []
-    for compare_to, attribute, distance_map_file in zip(compare_to_list, args.attribute_name, args.map):
-        # Load the given distance map.
-        distance_map = read_distance_map(distance_map_file)
-        distance_map_names.append(distance_map.get("name", distance_map_file))
+    for compare_to, attribute, distance_map_file in zip(compare_to_list, args.attribute_name, maps):
+        if distance_map_file:
+            # Load the given distance map.
+            distance_map = read_distance_map(distance_map_file)
+            distance_map_names.append(distance_map.get("name", distance_map_file))
 
         for season_date, tips in tips_by_season.items():
             if compare_to == "ancestor":
@@ -218,12 +298,20 @@ if __name__ == "__main__":
                 )
             elif compare_to == "vaccine":
                 print(f"Compare tips in season {season_date} to vaccine {vaccines_by_season[season_date]}")
-                distances_by_node = get_distances_to_vaccine_by_tips(
-                    tips,
-                    sequences_by_node_and_gene,
-                    distance_map,
-                    vaccines_by_season[season_date]
-                )
+
+                if args.titer_tree_model:
+                    distances_by_node = get_titer_tree_distances_to_vaccine_by_tips(
+                        tips,
+                        tree,
+                        vaccines_by_season[season_date]
+                    )
+                else:
+                    distances_by_node = get_distances_to_vaccine_by_tips(
+                        tips,
+                        sequences_by_node_and_gene,
+                        distance_map,
+                        vaccines_by_season[season_date]
+                    )
             else:
                 print(f"Cannot compare tips with the requested method: {compare_to}", file=sys.stderr)
                 sys.exit(1)
