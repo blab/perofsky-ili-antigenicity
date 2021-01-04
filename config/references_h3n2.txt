@@ -1,3 +1,9 @@
+A/Kansas/14/2017
+A/Kansas/14/2017-egg
+A/Wellington/1/2004
+A/Wellington/1/2004-egg
+A/SouthAustralia/34/2019
+A/SouthAustralia/34/2019-egg
 A/Nanchang/933/1995
 A/Nanchang/933/1995-egg
 A/Wuhan/359/1995
