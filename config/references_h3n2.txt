@@ -16,6 +16,8 @@ A/Moscow/10/1999
 A/Moscow/10/1999-egg
 A/Fujian/411/2002
 A/Fujian/411/2002-egg
+A/Wyoming/3/2003
+A/Wyoming/3/2003-egg
 A/NewYork/55/2004
 A/NewYork/55/2004-egg
 A/California/7/2004
