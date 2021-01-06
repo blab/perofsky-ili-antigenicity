@@ -205,17 +205,17 @@ rule download_all_titers_by_assay:
         """
 
 rule get_titers_by_passage:
-    message: "Parsing cell-passaged titers for {wildcards.lineage} HI"
+    message: "Parsing {wildcards.passage}-passaged titers for {wildcards.lineage} HI"
     input:
         titers = rules.download_all_titers_by_assay.output.titers
     output:
-        titers = "data/{lineage}_hi_titers.tsv"
-    benchmark: "benchmarks/get_titers_{lineage}_cell_hi.txt"
-    log: "logs/get_titers_{lineage}_cell_hi.log"
+        titers = "data/{lineage}_{passage}_hi_titers.tsv"
+    benchmark: "benchmarks/get_titers_{lineage}_{passage}_hi.txt"
+    log: "logs/get_titers_{lineage}_{passage}_hi.log"
     run:
         df = pd.read_json(input.titers)
-        passaged = (df["serum_passage_category"] == "cell")
-        tdb_passaged = df["index"].apply(lambda index: isinstance(index, list) and "cell" in index)
+        passaged = (df["serum_passage_category"] == wildcards.passage)
+        tdb_passaged = df["index"].apply(lambda index: isinstance(index, list) and wildcards.passage in index)
         tsv_fields = [
             "virus_strain",
             "serum_strain",
@@ -299,7 +299,7 @@ rule select_strains:
     input:
         sequences = expand("results/filtered_{{lineage}}_{segment}.fasta", segment=segments),
         metadata = expand("results/filtered_metadata_{{lineage}}_{segment}.tsv", segment=segments),
-        titers = rules.get_titers_by_passage.output.titers,
+        titers = "data/{lineage}_egg_hi_titers.tsv",
         include = files.references
     output:
         strains = "results/{region}/strains_{lineage}_{resolution}.txt",
@@ -519,14 +519,14 @@ rule convert_translations_to_json:
 
 rule titers_sub:
     input:
-        titers = rules.get_titers_by_passage.output.titers,
+        titers = "data/{lineage}_{passage}_hi_titers.tsv",
         aa_muts = rules.translate.output,
         alignments = translations,
         tree = rules.refine.output.tree
     params:
         genes = gene_names
     output:
-        titers_model = "results/{region}/titers-sub-model_{lineage}_{segment}_{resolution}.json",
+        titers_model = "results/{region}/titers-sub-model_{lineage}_{passage}_{segment}_{resolution}.json",
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -540,10 +540,10 @@ rule titers_sub:
 
 rule titers_tree:
     input:
-        titers = rules.get_titers_by_passage.output.titers,
+        titers = "data/{lineage}_{passage}_hi_titers.tsv",
         tree = rules.refine.output.tree
     output:
-        titers_model = "results/{region}/titers-tree-model_{lineage}_{segment}_{resolution}.json",
+        titers_model = "results/{region}/titers-tree-model_{lineage}_{passage}_{segment}_{resolution}.json",
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -557,7 +557,7 @@ rule convert_titer_model_to_distance_map:
     input:
         model = rules.titers_sub.output.titers_model
     output:
-        distance_map = "results/{region}/titer_substitution_distance_map_{lineage}_{segment}_{resolution}.json"
+        distance_map = "results/{region}/titer_substitution_distance_map_{lineage}_{passage}_{segment}_{resolution}.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -655,7 +655,7 @@ rule seasonal_titer_distances:
         interval = 12,
         months_prior_to_season = 12
     output:
-        distances = "results/{region}/seasonal_titer_distances_{lineage}_{segment}_{resolution}.json"
+        distances = "results/{region}/seasonal_titer_distances_{lineage}_{passage}_{segment}_{resolution}.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -685,9 +685,9 @@ rule seasonal_titer_tree_distances:
         interval = 12,
         months_prior_to_season = 12
     output:
-        distances = "results/{region}/seasonal_titer_tree_distances_{lineage}_{segment}_{resolution}.json"
+        distances = "results/{region}/seasonal_titer_tree_distances_{lineage}_{passage}_{segment}_{resolution}.json"
     log:
-        "logs/{region}_seasonal_titer_tree_distances_{lineage}_{segment}_{resolution}.txt"
+        "logs/{region}_seasonal_titer_tree_distances_{lineage}_{passage}_{segment}_{resolution}.txt"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -718,7 +718,7 @@ rule seasonal_vaccine_titer_distances:
         interval = 12,
         months_prior_to_season = 12
     output:
-        distances = "results/{region}/seasonal_vaccine_titer_distances_{lineage}_{segment}_{resolution}.json"
+        distances = "results/{region}/seasonal_vaccine_titer_distances_{lineage}_{passage}_{segment}_{resolution}.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -750,7 +750,7 @@ rule seasonal_vaccine_titer_tree_distances:
         interval = 12,
         months_prior_to_season = 12
     output:
-        distances = "results/{region}/seasonal_vaccine_titer_tree_distances_{lineage}_{segment}_{resolution}.json"
+        distances = "results/{region}/seasonal_vaccine_titer_tree_distances_{lineage}_{passage}_{segment}_{resolution}.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -913,7 +913,10 @@ def _get_node_data_for_export(wildcards):
             inputs.append(rules.seasonal_vaccine_titer_tree_distances.output.distances)
 
     # Convert input files from wildcard strings to real file names.
-    inputs = [input_file.format(**wildcards) for input_file in inputs]
+    wildcards_dict = dict(wildcards)
+    wildcards_dict["passage"] = "egg"
+
+    inputs = [input_file.format(**wildcards_dict) for input_file in inputs]
     return inputs
 
 rule export:
