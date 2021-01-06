@@ -148,6 +148,11 @@ rule all:
         auspice = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         auspice_frequencies = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_tip-frequencies.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions)
 
+rule auspice:
+    input:
+        auspice = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
+        auspice_frequencies = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_tip-frequencies.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions)
+
 rule files:
     params:
         outliers = "config/outliers_{lineage}.txt",
