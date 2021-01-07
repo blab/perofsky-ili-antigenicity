@@ -388,7 +388,6 @@ rule refine:
           - estimate timetree
           - use {params.coalescent} coalescent timescale
           - estimate {params.date_inference} node dates
-          - filter tips more than {params.clock_filter_iqd} IQDs from clock expectation
         """
     input:
         tree = rules.tree.output.tree,
@@ -414,7 +413,6 @@ rule refine:
             --output-tree {output.tree} \
             --output-node-data {output.node_data} \
             --timetree \
-            --clock-filter-iqd {params.clock_filter_iqd} \
             --no-covariance \
             --clock-rate {params.clock_rate} \
             --clock-std-dev {params.clock_std_dev} \
