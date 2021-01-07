@@ -299,7 +299,7 @@ rule select_strains:
     input:
         sequences = expand("results/filtered_{{lineage}}_{segment}.fasta", segment=segments),
         metadata = expand("results/filtered_metadata_{{lineage}}_{segment}.tsv", segment=segments),
-        titers = "data/{lineage}_egg_hi_titers.tsv",
+        titers = "data/{lineage}_cell_hi_titers.tsv",
         include = files.references
     output:
         strains = "results/{region}/strains_{lineage}_{resolution}.txt",
@@ -709,7 +709,7 @@ rule seasonal_vaccine_titer_distances:
         alignments = translations,
         distance_maps = rules.convert_titer_model_to_distance_map.output.distance_map,
         date_annotations = rules.refine.output.node_data,
-        vaccines = "config/vaccines_h3n2.json"
+        vaccines = "config/vaccine_start_dates_{vaccine_region}.tsv"
     params:
         genes = gene_names,
         attribute_names = "cTiterSub_seasonal_vaccine",
@@ -718,7 +718,7 @@ rule seasonal_vaccine_titer_distances:
         interval = 12,
         months_prior_to_season = 12
     output:
-        distances = "results/{region}/seasonal_vaccine_titer_distances_{lineage}_{passage}_{segment}_{resolution}.json"
+        distances = "results/{region}/seasonal_vaccine_titer_distances_{lineage}_{passage}_{vaccine_region}_{segment}_{resolution}.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -726,7 +726,7 @@ rule seasonal_vaccine_titer_distances:
             --tree {input.tree} \
             --alignment {input.alignments} \
             --gene-names {params.genes} \
-            --attribute-name {params.attribute_names} \
+            --attribute-name {params.attribute_names}_{wildcards.vaccine_region} \
             --map {input.distance_maps} \
             --date-annotations {input.date_annotations} \
             --start-date {params.start_date} \
@@ -742,7 +742,7 @@ rule seasonal_vaccine_titer_tree_distances:
         tree = rules.refine.output.tree,
         date_annotations = rules.refine.output.node_data,
         titer_tree_model = rules.titers_tree.output.titers_model,
-        vaccines = "config/vaccines_h3n2.json"
+        vaccines = "config/vaccine_start_dates_{vaccine_region}.tsv"
     params:
         attribute_names = "cTiter_seasonal_vaccine",
         start_date = config["distance_start_date"],
@@ -750,13 +750,13 @@ rule seasonal_vaccine_titer_tree_distances:
         interval = 12,
         months_prior_to_season = 12
     output:
-        distances = "results/{region}/seasonal_vaccine_titer_tree_distances_{lineage}_{passage}_{segment}_{resolution}.json"
+        distances = "results/{region}/seasonal_vaccine_titer_tree_distances_{lineage}_{passage}_{vaccine_region}_{segment}_{resolution}.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
         python3 scripts/seasonal_distance.py \
             --tree {input.tree} \
-            --attribute-name {params.attribute_names} \
+            --attribute-name {params.attribute_names}_{wildcards.vaccine_region} \
             --date-annotations {input.date_annotations} \
             --start-date {params.start_date} \
             --end-date {params.end_date} \
@@ -914,7 +914,8 @@ def _get_node_data_for_export(wildcards):
 
     # Convert input files from wildcard strings to real file names.
     wildcards_dict = dict(wildcards)
-    wildcards_dict["passage"] = "egg"
+    wildcards_dict["passage"] = "cell"
+    wildcards_dict["vaccine_region"] = "northern-hemisphere"
 
     inputs = [input_file.format(**wildcards_dict) for input_file in inputs]
     return inputs

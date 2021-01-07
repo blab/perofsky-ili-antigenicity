@@ -9,7 +9,7 @@ from augur.utils import annotate_parents_for_tree, read_node_data, write_json
 
 import Bio
 import Bio.Phylo
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 import copy
 import datetime
 import json
@@ -135,7 +135,34 @@ def get_titer_tree_distances_to_ancestor_by_tips(tips, tree, latest_date):
     return distances_by_node
 
 
-def get_distances_to_vaccine_by_tips(tips, sequences_by_node_and_gene, distance_map, vaccine_strain):
+def get_vaccine_strain_for_date(vaccines, date):
+    """Get the name of the vaccine strain whose start date immediately precedes the given date.
+
+    Parameters
+    ----------
+    vaccines : pandas.DataFrame
+        table of vaccine strains and their numeric vaccine start dates in float format (e.g., 2010.25).
+
+    date : float
+        numeric date (e.g., 2010.25).
+
+    Returns
+    -------
+    str :
+        name of the vaccine strain preceding the given date
+
+    """
+    # Find all vaccine strains with dates just before the given date.
+    potential_strains = vaccines[vaccines["numeric_vaccine_start_date"] < date]["strain"].values
+
+    # Select the last item in the sorted list.
+    if len(potential_strains) > 0:
+        return potential_strains[-1]
+    else:
+        return None
+
+
+def get_distances_to_vaccine_by_tips(tips, sequences_by_node_and_gene, distance_map, vaccines):
     """Calculate distances between each sample in the given sequences and the
     vaccine that was available in the season those sequences were circulating using
     the given distance map.
@@ -152,9 +179,8 @@ def get_distances_to_vaccine_by_tips(tips, sequences_by_node_and_gene, distance_
         site-specific and, optionally, sequence-specific distances between two
         sequences
 
-    vaccine_strain : str
-        name of the vaccine that was available in the season that the given tips
-        circulated
+    vaccines : pandas.DataFrame
+        table of vaccine strains and their corresponding vaccine start dates
 
     Returns
     -------
@@ -162,22 +188,34 @@ def get_distances_to_vaccine_by_tips(tips, sequences_by_node_and_gene, distance_
         distances calculated between each sample in the tree and its vaccine
         sequence with distances indexed by node name
 
+    dict :
+        vaccines strain used per sample
+
     """
     distances_by_node = {}
+    vaccines_by_node = {}
 
     # Calculate distance between each tip and its vaccine from the same
     # season as defined by the given latest date threshold.
     for node in tips:
+        # Find the appropriate vaccine for the given tip's date.
+        vaccine_strain = get_vaccine_strain_for_date(vaccines, node.attr["num_date"])
+        if vaccine_strain is None:
+            continue
+
+        print(f"Using {vaccine_strain} for {node.name} with date of {node.attr['num_date']}", flush=True)
+
         distances_by_node[node.name] = get_distance_between_nodes(
             sequences_by_node_and_gene[vaccine_strain],
             sequences_by_node_and_gene[node.name],
             distance_map
         )
+        vaccines_by_node[node.name] = vaccine_strain
 
-    return distances_by_node
+    return distances_by_node, vaccines_by_node
 
 
-def get_titer_tree_distances_to_vaccine_by_tips(tips, tree, vaccine_strain):
+def get_titer_tree_distances_to_vaccine_by_tips(tips, tree, vaccines):
     """
     tips : list
         a list of Bio.Phylo nodes for tips to find the distance to
@@ -185,28 +223,37 @@ def get_titer_tree_distances_to_vaccine_by_tips(tips, tree, vaccine_strain):
     tree : Bio.Phylo
         a tree annotated with titer tree model distances in the `dTiter` node attribute
 
-    vaccine_strain : str
-        name of the vaccine strain available in the season when the given tips circulated
+    vaccines : pandas.DataFrame
+        table of vaccine strains and their corresponding vaccine start dates
     """
     distances_by_node = {}
-
-    # Get the vaccine strain node.
-    vaccine_node = [
-        node
-        for node in tree.find_clades(terminal=True)
-        if node.name == vaccine_strain
-    ][0]
+    vaccines_by_node = {}
 
     # Calculate titer tree distance between each tip and its vaccine from the
     # same season as defined by the given latest date threshold.
     for node in tips:
+        # Find the appropriate vaccine for the given tip's date.
+        vaccine_strain = get_vaccine_strain_for_date(vaccines, node.attr["num_date"])
+        if vaccine_strain is None:
+            continue
+
+        print(f"Using {vaccine_strain} for {node.name} with date of {node.attr['num_date']}", flush=True)
+
+        # Get the vaccine strain node.
+        vaccine_node = [
+            node
+            for node in tree.find_clades(terminal=True)
+            if node.name == vaccine_strain
+        ][0]
+
         distances_by_node[node.name] = get_titer_distance_between_nodes(
             tree,
             vaccine_node,
             node
         )
+        vaccines_by_node[node.name] = vaccine_strain
 
-    return distances_by_node
+    return distances_by_node, vaccines_by_node
 
 
 def get_titer_distance_between_nodes(tree, past_node, current_node, titer_attr="dTiter"):
@@ -249,7 +296,7 @@ if __name__ == "__main__":
     parser.add_argument("--end-date", help="date to end seasonal intervals (e.g., 2010-10-01)", required=True)
     parser.add_argument("--interval", type=int, help="number of months per season", required=True)
     parser.add_argument("--months-prior-to-season", type=int, help="number of months prior to each season to look for a tip's ancestor", required=True)
-    parser.add_argument("--vaccines", help="JSON describing vaccine strains by selection date to use for seasonal distance calculations instead of the ancestor from the last season")
+    parser.add_argument("--vaccines", help="table of vaccine strains annotated by selection and start date to use for seasonal distance calculations instead of the ancestor from the last season")
     parser.add_argument("--titer-tree-model", help="JSON representing titer tree model mapping weights to branches in the given tree")
     parser.add_argument("--output", help="JSON file with calculated distances stored by node name and attribute name", required=True)
 
@@ -275,6 +322,8 @@ if __name__ == "__main__":
 
     # Create season intervals.
     seasons = pd.date_range(args.start_date, args.end_date, freq="%iMS" % args.interval)
+    print("Seasons:")
+    print(seasons)
 
     # Load date annotations and annotate tree with them.
     date_annotations = read_node_data(args.date_annotations)
@@ -317,21 +366,15 @@ if __name__ == "__main__":
     # If we're comparing to vaccine strains instead of last ancestors, assign
     # vaccines to seasons by their selection dates.
     if args.vaccines is not None:
-        vaccines = read_node_data(args.vaccines)
-        vaccine_dates_by_strain = {
-            strain: numeric_date(datetime.datetime.strptime(strain_data["vaccine"]["selection_date"], "%Y-%m-%d"))
-            for strain, strain_data in vaccines["nodes"].items()
-        }
+        vaccines = pd.read_csv(
+            args.vaccines,
+            sep="\t",
+            parse_dates=["selection_date", "vaccine_start_date"]
+        )
+        vaccines["numeric_vaccine_start_date"] = vaccines["vaccine_start_date"].apply(numeric_date)
 
-        vaccines_by_season = {}
-        for season in seasons:
-            season_date = season.strftime("%Y-%m-%d")
-            season_float = timestamp_to_float(season)
-
-            for vaccine, selection_date in vaccine_dates_by_strain.items():
-                if selection_date < season_float:
-                    vaccines_by_season[season_date] = vaccine
-
+        print(seasons)
+        print(vaccines)
         compare_to_list = ["vaccine"] * len(args.attribute_name)
     else:
         compare_to_list = ["ancestor"] * len(args.attribute_name)
@@ -350,6 +393,8 @@ if __name__ == "__main__":
             distance_map_names.append(distance_map.get("name", distance_map_file))
 
         for season_date, tips in tips_by_season.items():
+            vaccines_by_node = None
+
             if compare_to == "ancestor":
                 # Use the distance map to calculate distances between all samples in the
                 # given tree and their last ancestor in the previous season.
@@ -369,20 +414,18 @@ if __name__ == "__main__":
                         latest_date
                     )
             elif compare_to == "vaccine":
-                print(f"Compare tips in season {season_date} to vaccine {vaccines_by_season[season_date]}")
-
                 if args.titer_tree_model:
-                    distances_by_node = get_titer_tree_distances_to_vaccine_by_tips(
+                    distances_by_node, vaccines_by_node = get_titer_tree_distances_to_vaccine_by_tips(
                         tips,
                         tree,
-                        vaccines_by_season[season_date]
+                        vaccines
                     )
                 else:
-                    distances_by_node = get_distances_to_vaccine_by_tips(
+                    distances_by_node, vaccines_by_node = get_distances_to_vaccine_by_tips(
                         tips,
                         sequences_by_node_and_gene,
                         distance_map,
-                        vaccines_by_season[season_date]
+                        vaccines
                     )
             else:
                 print(f"Cannot compare tips with the requested method: {compare_to}", file=sys.stderr)
@@ -407,8 +450,12 @@ if __name__ == "__main__":
 
                 final_distances_by_node[node_name][attribute] = values
 
-                if compare_to == "vaccine":
-                    final_distances_by_node[node_name]["vaccine_strain"] = vaccines_by_season[season_date]
+            if vaccines_by_node is not None:
+                for node_name, values in vaccines_by_node.items():
+                    if node_name not in final_distances_by_node:
+                        final_distances_by_node[node_name] = {}
+
+                    final_distances_by_node[node_name][f"vaccine_strain_for_{attribute}"] = values
 
     # Prepare params for export.
     params = {
