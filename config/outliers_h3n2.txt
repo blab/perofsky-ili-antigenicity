@@ -334,10 +334,12 @@ A/Jiangsu_Chongchuan/12179/2014
 A/Jiangsu-Chongchuan/12179/2014
 A/Jiangsu_Chongchuan/12714/2015
 A/Jiangsu-Chongchuan/12714/2015
+A/Jiangsu-Chongchuan/12714/2015-egg
 A/Jiangsu_Chongchuan/12908/2015
 A/Jiangsu-Chongchuan/12908/2015
 A/Jiangsu_Chongchuan/1830/2014
 A/Jiangsu-Chongchuan/1830/2014
+A/Jiangsu-Chongchuan/1830/2014-egg
 A/Jiangsu_Tianning/1707/2013
 A/Jiangsu-Tianning/1707/2013
 A/Kansas/13/2009
@@ -547,8 +549,10 @@ A/Paris/89/2015
 A/Pennsylvania/09/2011
 A/Pennsylvania/11/2011
 A/Pennsylvania/11/2012
+A/Pennsylvania/11/2012-egg
 A/Pennsylvania/13/2012
 A/Pennsylvania/14/2010
+A/Pennsylvania/14/2010-egg
 A/Pennsylvania/17/2012
 A/Pennsylvania/40/2010
 A/Pennsylvania/9/2011
@@ -593,6 +597,7 @@ A/WestVirginia/15/2012
 A/WestVirginia/16/2012
 A/WestVirginia/6/2011
 A/WestVirginia/6/2011_egg
+A/WestVirginia/6/2011-egg
 A/WestVirginia/9/2012
 A/Wisconsin/10/2012
 A/Wisconsin/1/2012
