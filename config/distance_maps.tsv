@@ -3,5 +3,6 @@ h3n2	ha	root	ep	wolf
 h3n2	ha	root	ne	wolf_nonepitope
 h3n2	ha	root	rb	koel
 h3n2	ha	root	stem	stem
+h3n2	ha	root	stem_ep	stem_antigenic
 h3n2	na	root	ep	bhatt
 h3n2	na	root	ne	bhatt_nonepitope
