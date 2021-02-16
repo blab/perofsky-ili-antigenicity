@@ -16,7 +16,7 @@ wildcard_constraints:
     resolution="\d+y"
 
 path_to_fauna = '../fauna'
-segments = ['ha', 'na']
+segments = ['ha']
 lineages = ['h3n2']
 resolutions = ['21y']
 regions = ["global", "north-america"]
@@ -274,7 +274,7 @@ rule filter:
             --non-nucleotide \
             --include {input.include} \
             --exclude {input.exclude} \
-            --exclude-where country=? region=? \
+            --exclude-where country=? region=? passage=egg \
             --output {output}
         """
 
@@ -299,7 +299,7 @@ rule select_strains:
     input:
         sequences = expand("results/filtered_{{lineage}}_{segment}.fasta", segment=segments),
         metadata = expand("results/filtered_metadata_{{lineage}}_{segment}.tsv", segment=segments),
-        titers = "data/{lineage}_egg_hi_titers.tsv",
+        titers = "data/{lineage}_cell_hi_titers.tsv",
         include = files.references
     output:
         strains = "results/{region}/strains_{lineage}_{resolution}.txt",
@@ -912,7 +912,7 @@ def _get_node_data_for_export(wildcards):
 
     # Convert input files from wildcard strings to real file names.
     wildcards_dict = dict(wildcards)
-    wildcards_dict["passage"] = "egg"
+    wildcards_dict["passage"] = "cell"
     wildcards_dict["vaccine_region"] = "northern-hemisphere"
 
     inputs = [input_file.format(**wildcards_dict) for input_file in inputs]
