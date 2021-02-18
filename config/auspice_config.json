@@ -52,6 +52,11 @@
       "type": "continuous"
     },
     {
+      "key": "stem_ep",
+      "title": "Stem epitope mutations",
+      "type": "continuous"
+    },
+    {
       "key": "ep_seasonal",
       "title": "Epitope since last season",
       "type": "continuous"
