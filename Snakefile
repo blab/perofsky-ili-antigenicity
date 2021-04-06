@@ -3,7 +3,7 @@ from datetime import date
 import pandas as pd
 from treetime.utils import numeric_date
 
-configfile: "config.json"
+configfile: "config.yaml"
 localrules: download_sequences, download_all_titers_by_assay, get_titers_by_passage, filter_metadata
 
 wildcard_constraints:
