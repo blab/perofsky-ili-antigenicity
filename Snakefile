@@ -247,6 +247,23 @@ rule parse:
             --fields {params.fasta_fields}
         """
 
+rule index_sequences:
+    message:
+        """
+        Creating an index of sequence composition for filtering.
+        """
+    input:
+        sequences = rules.parse.output.sequences
+    output:
+        sequence_index = "results/sequence_index_{lineage}_{segment}.tsv"
+    conda: "envs/nextstrain.yaml"
+    shell:
+        """
+        augur index \
+            --sequences {input.sequences} \
+            --output {output.sequence_index}
+        """
+
 rule filter:
     message:
         """
@@ -258,6 +275,7 @@ rule filter:
     input:
         metadata = rules.parse.output.metadata,
         sequences = rules.parse.output.sequences,
+        sequence_index = rules.index_sequences.output.sequence_index,
         include = files.references,
         exclude = files.outliers
     output:
@@ -269,6 +287,7 @@ rule filter:
         """
         augur filter \
             --sequences {input.sequences} \
+            --sequence-index {input.sequence_index} \
             --metadata {input.metadata} \
             --min-length {params.min_length} \
             --non-nucleotide \

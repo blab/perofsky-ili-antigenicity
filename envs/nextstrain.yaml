@@ -4,8 +4,8 @@ channels:
 - bioconda
 - defaults
 dependencies:
-- augur=10.1.1
-- python=3.6*
+- augur=11.3.0
+- python=3.8*
 - nodejs=10
 - pip
 - pip:
