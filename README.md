@@ -12,7 +12,7 @@ Alternately, distribute the build on a cluster with a Snakemake profile.
 The following command runs all builds on the Hutch SLURM cluster, using [mamba](https://github.com/mamba-org/mamba) as the conda frontend for faster installation of environment packages.
 
 ```
-snakemake --conda-frontend mamba --profile profiles/slurm-drmaa/
+snakemake --profile profiles/slurm-drmaa/
 ```
 
 Build the auspice static site from the build output.

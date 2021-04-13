@@ -28,6 +28,7 @@ latency-wait: 60
 # cluster environment where Docker is not available and Singularity may be
 # prohibitively complicated to setup.
 use-conda: True
+conda-frontend: mamba
 
 # Cluster-specific settings for resources required by any rule. This file
 # provides default resources for all rules and allows users to specify resources
