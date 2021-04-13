@@ -345,10 +345,21 @@ rule select_strains:
             --output {output.strains} &> {log}
         """
 
+def _get_strains_to_extract(wildcards):
+    """Get list of frozen strains for the given wildcards, if they have been
+    defined. Otherwise, select strains from scratch.
+    """
+    frozen_strains = config.get("frozen_strains", {}).get(wildcards.region)
+
+    if frozen_strains:
+        return frozen_strains
+    else:
+        return rules.select_strains.output.strains.format(**wildcards)
+
 rule extract:
     input:
         sequences = rules.filter.output.sequences,
-        strains = rules.select_strains.output.strains
+        strains = _get_strains_to_extract
     output:
         sequences = 'results/{region}/extracted_{lineage}_{segment}_{resolution}.fasta'
     conda: "envs/nextstrain.yaml"
@@ -394,7 +405,7 @@ rule tree:
     threads: 8
     shell:
         """
-        augur tree \
+        export AUGUR_RECURSION_LIMIT=10000 && augur tree \
             --alignment {input.alignment} \
             --output {output.tree} \
             --nthreads {threads}

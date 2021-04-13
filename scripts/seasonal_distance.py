@@ -237,14 +237,18 @@ def get_titer_tree_distances_to_vaccine_by_tips(tips, tree, vaccines):
         if vaccine_strain is None:
             continue
 
-        print(f"Using {vaccine_strain} for {node.name} with date of {node.attr['num_date']}", flush=True)
-
         # Get the vaccine strain node.
-        vaccine_node = [
+        potential_vaccine_nodes = [
             node
             for node in tree.find_clades(terminal=True)
             if node.name == vaccine_strain
-        ][0]
+        ]
+
+        if len(potential_vaccine_nodes) == 0:
+            continue
+
+        vaccine_node = potential_vaccine_nodes[0]
+        print(f"Using {vaccine_strain} for {node.name} with date of {node.attr['num_date']}", flush=True)
 
         distances_by_node[node.name] = get_titer_distance_between_nodes(
             tree,
