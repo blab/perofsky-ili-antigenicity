@@ -1,7 +1,3 @@
-frozen_strains:
-  global: "config/flu_seasonal_h3n2_ha_21y_global_strains_2019-10-25.txt"
-  north-america: "config/flu_seasonal_h3n2_ha_21y_north-america_strains_2019-10-25.txt"
-
 start_date: 1997-01-01
 end_date: 2019-10-01
 
