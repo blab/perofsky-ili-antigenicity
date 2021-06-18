@@ -191,7 +191,7 @@ rule download_all_titers_by_assay:
     benchmark: "benchmarks/download_all_titers_{lineage}_hi.txt"
     log: "logs/download_all_titers_{lineage}_hi.log"
     params:
-        databases = "tdb cdc_tdb crick_tdb"
+        databases = config["titer_databases"]
     shell:
         """
         python3 {path_to_fauna}/tdb/download.py \

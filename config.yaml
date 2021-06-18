@@ -1,6 +1,12 @@
 start_date: 1997-01-01
 end_date: 2019-10-01
 
+titer_databases:
+  - tdb
+  - cdc_tdb
+  - crick_tdb
+  - vidrl_tdb
+
 distance_start_date: 1996-07-01
 distance_end_date: 2020-07-01
 
