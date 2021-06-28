@@ -1,3 +1,5 @@
+number_of_replicates: 5
+
 start_date: 1997-01-01
 end_date: 2019-10-01
 

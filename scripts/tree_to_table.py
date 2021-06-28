@@ -13,6 +13,7 @@ if __name__ == "__main__":
     parser.add_argument("output", help="tab-delimited file of attributes per node of the given tree")
     parser.add_argument("--include-internal-nodes", action="store_true", help="include data from internal nodes in output")
     parser.add_argument("--attributes", nargs="+", help="names of attributes to export from the given tree")
+    parser.add_argument("--annotations", nargs="+", help="additional annotations to add to the output table in the format of 'key=value' pairs")
 
     args = parser.parse_args()
 
@@ -44,6 +45,25 @@ if __name__ == "__main__":
 
             records.append(record)
 
-    # Convert records to a data frame and save as a tab-delimited file.
+    # Convert records to a data frame.
     df = pd.DataFrame(records)
-    df.to_csv(args.output, sep="\t", header=True, index=False, columns=["name"] + list(args.attributes), float_format="%.2f")
+
+    # Add any additional annotations requested by the user in the format of
+    # "key=value" pairs where each key becomes a new column with the given
+    # value.
+    if args.annotations:
+        annotation_columns = []
+        for annotation in args.annotations:
+            key, value = annotation.split("=")
+            df[key] = value
+            annotation_columns.append(key)
+
+    # Save as a tab-delimited file.
+    df.to_csv(
+        args.output,
+        sep="\t",
+        header=True,
+        index=False,
+        columns=["name"] + list(args.attributes) + annotation_columns,
+        float_format="%.2f"
+    )

@@ -13,7 +13,8 @@ wildcard_constraints:
     lineage="[a-z0-9]+",
     segment="[a-z]+[0-9]?",
     region="[-a-z]+",
-    resolution="\d+y"
+    resolution="\d+y",
+    replicate="\d+"
 
 path_to_fauna = '../fauna'
 segments = ['ha']
@@ -22,6 +23,7 @@ resolutions = ['21y']
 regions = ["global", "north-america"]
 frequency_regions = ['north_america', 'south_america', 'europe', 'china',
                      'southeast_asia', 'japan_korea', 'south_asia', 'africa']
+replicates = range(0, config["number_of_replicates"])
 
 def _get_float_date_from_string(date_string):
     return timestamp_to_float(pd.to_datetime(date_string))
@@ -43,12 +45,12 @@ def gene_names(w):
 
 def translations(w):
     genes = gene_names(w)
-    return ["results/%s/aa-seq_%s_%s_%s_%s.fasta" % (w.region, w.lineage, w.segment, w.resolution, g)
+    return ["results/%s/%s/aa-seq_%s_%s_%s_%s.fasta" % (w.replicate, w.region, w.lineage, w.segment, w.resolution, g)
             for g in genes]
 
 def translations_jsons(w):
     genes = gene_names(w)
-    return ["results/%s/aa-seq_%s_%s_%s_%s.json" % (w.region, w.lineage, w.segment, w.resolution, g)
+    return ["results/%s/%s/aa-seq_%s_%s_%s_%s.json" % (w.replicate, w.region, w.lineage, w.segment, w.resolution, g)
             for g in genes]
 
 def pivots_per_year(w):
@@ -143,15 +145,17 @@ def _get_distance_maps_by_lineage_and_segment(wildcards):
 rule all:
     input:
         mean_lbi = expand("results/{region}_mean_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
+        mean_strain_lbi = expand("results/{region}_strain_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         mean_distances = expand("results/{region}_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
+        mean_strain_distances = expand("results/{region}_mean_strain_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         auspice_tables = expand("auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
-        auspice = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
-        auspice_frequencies = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_tip-frequencies.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions)
+        auspice = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_{replicate}.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions, replicate=replicates),
+        auspice_frequencies = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_{replicate}_tip-frequencies.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions, replicate=replicates)
 
 rule auspice:
     input:
-        auspice = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
-        auspice_frequencies = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_tip-frequencies.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions)
+        auspice = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_{replicate}.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions, replicate=replicates),
+        auspice_frequencies = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_{replicate}_tip-frequencies.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions, replicate=replicates)
 
 rule files:
     params:
@@ -321,9 +325,9 @@ rule select_strains:
         titers = "data/{lineage}_cell_hi_titers.tsv",
         include = files.references
     output:
-        strains = "results/{region}/strains_{lineage}_{resolution}.txt",
+        strains = "results/{replicate}/{region}/strains_{lineage}_{resolution}.txt",
     log:
-        "logs/strains_{region}_{lineage}_{resolution}.txt"
+        "logs/strains_{region}_{lineage}_{resolution}_{replicate}.txt"
     params:
         start_date = config["start_date"],
         end_date = config["end_date"],
@@ -361,7 +365,7 @@ rule extract:
         sequences = rules.filter.output.sequences,
         strains = _get_strains_to_extract
     output:
-        sequences = 'results/{region}/extracted_{lineage}_{segment}_{resolution}.fasta'
+        sequences = 'results/{replicate}/{region}/extracted_{lineage}_{segment}_{resolution}.fasta'
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -381,7 +385,7 @@ rule align:
         sequences = rules.extract.output.sequences,
         reference = files.reference
     output:
-        alignment = "results/{region}/aligned_{lineage}_{segment}_{resolution}.fasta"
+        alignment = "results/{replicate}/{region}/aligned_{lineage}_{segment}_{resolution}.fasta"
     conda: "envs/nextstrain.yaml"
     threads: 8
     shell:
@@ -400,7 +404,7 @@ rule tree:
     input:
         alignment = rules.align.output.alignment
     output:
-        tree = "results/{region}/tree-raw_{lineage}_{segment}_{resolution}.nwk"
+        tree = "results/{replicate}/{region}/tree-raw_{lineage}_{segment}_{resolution}.nwk"
     conda: "envs/nextstrain.yaml"
     threads: 8
     shell:
@@ -424,8 +428,8 @@ rule refine:
         alignment = rules.align.output,
         metadata = rules.parse.output.metadata
     output:
-        tree = "results/{region}/tree_{lineage}_{segment}_{resolution}.nwk",
-        node_data = "results/{region}/branch-lengths_{lineage}_{segment}_{resolution}.json"
+        tree = "results/{replicate}/{region}/tree_{lineage}_{segment}_{resolution}.nwk",
+        node_data = "results/{replicate}/{region}/branch-lengths_{lineage}_{segment}_{resolution}.json"
     params:
         coalescent = "const",
         date_inference = "marginal",
@@ -433,10 +437,10 @@ rule refine:
         clock_rate = _get_clock_rate_by_wildcards,
         clock_std_dev = _get_clock_std_dev_by_wildcards
     conda: "envs/nextstrain.yaml"
-    log: "logs/refine_{region}_{lineage}_{segment}_{resolution}.txt"
+    log: "logs/refine_{region}_{lineage}_{segment}_{resolution}_{replicate}.txt"
     shell:
         """
-        augur refine \
+        export AUGUR_RECURSION_LIMIT=10000 && augur refine \
             --tree {input.tree} \
             --alignment {input.alignment} \
             --metadata {input.metadata} \
@@ -457,7 +461,7 @@ rule ancestral:
         tree = rules.refine.output.tree,
         alignment = rules.align.output
     output:
-        node_data = "results/{region}/nt-muts_{lineage}_{segment}_{resolution}.json"
+        node_data = "results/{replicate}/{region}/nt-muts_{lineage}_{segment}_{resolution}.json"
     params:
         inference = "joint"
     conda: "envs/nextstrain.yaml"
@@ -477,7 +481,7 @@ rule translate:
         node_data = rules.ancestral.output.node_data,
         reference = files.reference
     output:
-        node_data = "results/{region}/aa-muts_{lineage}_{segment}_{resolution}.json",
+        node_data = "results/{replicate}/{region}/aa-muts_{lineage}_{segment}_{resolution}.json",
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -492,9 +496,9 @@ rule reconstruct_translations:
     message: "Reconstructing translations required for titer models and frequencies"
     input:
         tree = rules.refine.output.tree,
-        node_data = "results/{region}/aa-muts_{lineage}_{segment}_{resolution}.json",
+        node_data = "results/{replicate}/{region}/aa-muts_{lineage}_{segment}_{resolution}.json",
     output:
-        aa_alignment = "results/{region}/aa-seq_{lineage}_{segment}_{resolution}_{gene}.fasta"
+        aa_alignment = "results/{replicate}/{region}/aa-seq_{lineage}_{segment}_{resolution}_{gene}.fasta"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -515,7 +519,7 @@ rule traits:
         tree = rules.refine.output.tree,
         metadata = rules.parse.output.metadata
     output:
-        node_data = "results/{region}/traits_{lineage}_{segment}_{resolution}.json",
+        node_data = "results/{replicate}/{region}/traits_{lineage}_{segment}_{resolution}.json",
     params:
         columns = "region"
     conda: "envs/nextstrain.yaml"
@@ -532,9 +536,9 @@ rule traits:
 rule convert_translations_to_json:
     input:
         tree = rules.refine.output.tree,
-        translations = "results/{region}/aa-seq_{lineage}_{segment}_{resolution}_{gene}.fasta"
+        translations = "results/{replicate}/{region}/aa-seq_{lineage}_{segment}_{resolution}_{gene}.fasta"
     output:
-        translations = "results/{region}/aa-seq_{lineage}_{segment}_{resolution}_{gene}.json"
+        translations = "results/{replicate}/{region}/aa-seq_{lineage}_{segment}_{resolution}_{gene}.json"
     shell:
         """
         python3 scripts/convert_translations_to_json.py \
@@ -554,7 +558,7 @@ rule titers_sub:
     params:
         genes = gene_names
     output:
-        titers_model = "results/{region}/titers-sub-model_{lineage}_{passage}_{segment}_{resolution}.json",
+        titers_model = "results/{replicate}/{region}/titers-sub-model_{lineage}_{passage}_{segment}_{resolution}.json",
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -571,7 +575,7 @@ rule titers_tree:
         titers = "data/{lineage}_{passage}_hi_titers.tsv",
         tree = rules.refine.output.tree
     output:
-        titers_model = "results/{region}/titers-tree-model_{lineage}_{passage}_{segment}_{resolution}.json",
+        titers_model = "results/{replicate}/{region}/titers-tree-model_{lineage}_{passage}_{segment}_{resolution}.json",
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -585,7 +589,7 @@ rule convert_titer_model_to_distance_map:
     input:
         model = rules.titers_sub.output.titers_model
     output:
-        distance_map = "results/{region}/titer_substitution_distance_map_{lineage}_{passage}_{segment}_{resolution}.json"
+        distance_map = "results/{replicate}/{region}/titer_substitution_distance_map_{lineage}_{passage}_{segment}_{resolution}.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -602,7 +606,7 @@ rule clades:
         aa_muts = rules.translate.output,
         clade_definitions = "config/clades_{lineage}_{segment}.tsv"
     output:
-        clades = "results/{region}/clades_{lineage}_{segment}_{resolution}.json"
+        clades = "results/{replicate}/{region}/clades_{lineage}_{segment}_{resolution}.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -623,7 +627,7 @@ rule distances:
         comparisons = _get_distance_comparisons_by_lineage_and_segment,
         attribute_names = _get_distance_attributes_by_lineage_and_segment
     output:
-        distances = "results/{region}/distances_{lineage}_{segment}_{resolution}.json"
+        distances = "results/{replicate}/{region}/distances_{lineage}_{segment}_{resolution}.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -651,7 +655,7 @@ rule seasonal_distances:
         interval = 12,
         months_prior_to_season = 12
     output:
-        distances = "results/{region}/seasonal_distances_{lineage}_{segment}_{resolution}.json"
+        distances = "results/{replicate}/{region}/seasonal_distances_{lineage}_{segment}_{resolution}.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -683,7 +687,7 @@ rule seasonal_titer_distances:
         interval = 12,
         months_prior_to_season = 12
     output:
-        distances = "results/{region}/seasonal_titer_distances_{lineage}_{passage}_{segment}_{resolution}.json"
+        distances = "results/{replicate}/{region}/seasonal_titer_distances_{lineage}_{passage}_{segment}_{resolution}.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -713,9 +717,9 @@ rule seasonal_titer_tree_distances:
         interval = 12,
         months_prior_to_season = 12
     output:
-        distances = "results/{region}/seasonal_titer_tree_distances_{lineage}_{passage}_{segment}_{resolution}.json"
+        distances = "results/{replicate}/{region}/seasonal_titer_tree_distances_{lineage}_{passage}_{segment}_{resolution}.json"
     log:
-        "logs/{region}_seasonal_titer_tree_distances_{lineage}_{passage}_{segment}_{resolution}.txt"
+        "logs/{region}_seasonal_titer_tree_distances_{lineage}_{passage}_{segment}_{resolution}_{replicate}.txt"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -746,7 +750,7 @@ rule seasonal_vaccine_titer_distances:
         interval = 12,
         months_prior_to_season = 12
     output:
-        distances = "results/{region}/seasonal_vaccine_titer_distances_{lineage}_{passage}_{vaccine_region}_{segment}_{resolution}.json"
+        distances = "results/{replicate}/{region}/seasonal_vaccine_titer_distances_{lineage}_{passage}_{vaccine_region}_{segment}_{resolution}.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -778,7 +782,7 @@ rule seasonal_vaccine_titer_tree_distances:
         interval = 12,
         months_prior_to_season = 12
     output:
-        distances = "results/{region}/seasonal_vaccine_titer_tree_distances_{lineage}_{passage}_{vaccine_region}_{segment}_{resolution}.json"
+        distances = "results/{replicate}/{region}/seasonal_vaccine_titer_tree_distances_{lineage}_{passage}_{vaccine_region}_{segment}_{resolution}.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -809,9 +813,9 @@ rule mean_seasonal_distances:
         interval = 12,
         seasons_away_to_compare = 2
     output:
-        distances = "results/{region}_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv",
-        pairwise_distances = "results/{region}_mean_strain_seasonal_distances_{lineage}_{segment}_{resolution}.tsv"
-    log: "logs/mean_seasonal_distances_{region}_{lineage}_{segment}_{resolution}.txt"
+        distances = "results/{replicate}/{region}_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv",
+        pairwise_distances = "results/{replicate}/{region}_mean_strain_seasonal_distances_{lineage}_{segment}_{resolution}.tsv"
+    log: "logs/mean_seasonal_distances_{region}_{lineage}_{segment}_{resolution}_{replicate}.txt"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -839,9 +843,9 @@ rule mean_seasonal_lbi:
         end_date = config["distance_end_date"],
         interval = 12
     output:
-        mean_lbi = "results/{region}_mean_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv",
-        lbi_by_strain = "results/{region}_strain_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv"
-    log: "logs/mean_seasonal_lbi_{region}_{lineage}_{segment}_{resolution}.txt"
+        mean_lbi = "results/{replicate}/{region}_mean_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv",
+        lbi_by_strain = "results/{replicate}/{region}_strain_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv"
+    log: "logs/mean_seasonal_lbi_{region}_{lineage}_{segment}_{resolution}_{replicate}.txt"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -865,7 +869,7 @@ rule lbi:
         window = _get_lbi_window_for_wildcards,
         names = "lbi"
     output:
-        lbi = "results/{region}/lbi_{lineage}_{segment}_{resolution}.json"
+        lbi = "results/{replicate}/{region}/lbi_{lineage}_{segment}_{resolution}.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -892,7 +896,7 @@ rule tip_frequencies:
         max_date = MAX_DATE,
         pivot_interval = config["pivot_interval"]
     output:
-        tip_freq = "auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_tip-frequencies.json"
+        tip_freq = "auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_{replicate}_tip-frequencies.json"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -956,7 +960,7 @@ rule export:
         vaccines = files.vaccine_json,
         node_data = _get_node_data_for_export
     output:
-        auspice_main = "auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.json"
+        auspice_main = "auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_{replicate}.json"
     params:
         color_by_fields = "date"
     conda: "envs/nextstrain.yaml"
@@ -982,7 +986,7 @@ rule convert_tree_to_table:
     input:
         tree = rules.export.output.auspice_main
     output:
-        table = "auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.tsv"
+        table = "auspice_tables/{replicate}/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.tsv"
     params:
         attributes = _get_attributes_to_export
     conda: "envs/nextstrain.yaml"
@@ -991,7 +995,90 @@ rule convert_tree_to_table:
         python3 scripts/tree_to_table.py \
             {input.tree} \
             {output} \
-            --attributes {params.attributes}
+            --attributes {params.attributes} \
+            --annotations replicate={wildcards.replicate}
+        """
+
+
+rule aggregate_mean_seasonal_lbi:
+    input:
+        tables=expand("results/{replicate}/{{region}}_mean_seasonal_lbi_{{lineage}}_{{segment}}_{{resolution}}.tsv", replicate=replicates),
+    output:
+        table="results/{region}_mean_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv",
+    conda: "envs/nextstrain.yaml"
+    params:
+        replicates=list(replicates),
+    shell:
+        """
+        python3 scripts/concatenate_tables.py \
+            --tables {input.tables} \
+            --ids {params.replicates} \
+            --output {output.table}
+        """
+
+
+rule aggregate_strain_seasonal_lbi:
+    input:
+        tables=expand("results/{replicate}/{{region}}_strain_seasonal_lbi_{{lineage}}_{{segment}}_{{resolution}}.tsv", replicate=replicates),
+    output:
+        table="results/{region}_strain_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv",
+    conda: "envs/nextstrain.yaml"
+    params:
+        replicates=list(replicates),
+    shell:
+        """
+        python3 scripts/concatenate_tables.py \
+            --tables {input.tables} \
+            --ids {params.replicates} \
+            --output {output.table}
+        """
+
+
+rule aggregate_mean_seasonal_distances:
+    input:
+        tables=expand("results/{replicate}/{{region}}_mean_seasonal_distances_{{lineage}}_{{segment}}_{{resolution}}.tsv", replicate=replicates),
+    output:
+        table="results/{region}_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv",
+    conda: "envs/nextstrain.yaml"
+    params:
+        replicates=list(replicates),
+    shell:
+        """
+        python3 scripts/concatenate_tables.py \
+            --tables {input.tables} \
+            --ids {params.replicates} \
+            --output {output.table}
+        """
+
+
+rule aggregate_mean_strain_seasonal_distances:
+    input:
+        tables=expand("results/{replicate}/{{region}}_mean_strain_seasonal_distances_{{lineage}}_{{segment}}_{{resolution}}.tsv", replicate=replicates),
+    output:
+        table="results/{region}_mean_strain_seasonal_distances_{lineage}_{segment}_{resolution}.tsv",
+    conda: "envs/nextstrain.yaml"
+    params:
+        replicates=list(replicates),
+    shell:
+        """
+        python3 scripts/concatenate_tables.py \
+            --tables {input.tables} \
+            --ids {params.replicates} \
+            --output {output.table}
+        """
+
+
+rule aggregate_auspice_tables:
+    input:
+        tables=expand("auspice_tables/{replicate}/flu_seasonal_{{lineage}}_{{segment}}_{{resolution}}_{{region}}.tsv", replicate=replicates),
+    output:
+        table="auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.tsv",
+    conda: "envs/nextstrain.yaml"
+    shell:
+        """
+        python3 scripts/concatenate_tables.py \
+            --tables {input.tables} \
+            --output {output.table}
         """
 
 rule clean:
