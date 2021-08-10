@@ -20,6 +20,7 @@ path_to_fauna = '../fauna'
 segments = ['ha']
 lineages = ['h3n2']
 resolutions = ['21y']
+passages = ['cell']
 regions = ["global", "north-america"]
 frequency_regions = ['north_america', 'south_america', 'europe', 'china',
                      'southeast_asia', 'japan_korea', 'south_asia', 'africa']
@@ -148,6 +149,7 @@ rule all:
         mean_strain_lbi = expand("results/{region}_strain_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         mean_distances = expand("results/{region}_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         mean_strain_distances = expand("results/{region}_mean_strain_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
+        mean_titer_sub_distances = expand("results/{region}_mean_titer_sub_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv", lineage=lineages, passage=passages, segment=segments, resolution=resolutions, region=regions),
         auspice_tables = expand("auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         auspice = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_{replicate}.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions, replicate=replicates),
         auspice_frequencies = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_{replicate}_tip-frequencies.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions, replicate=replicates)
@@ -834,6 +836,41 @@ rule mean_seasonal_distances:
             --strain-output {output.pairwise_distances} &> {log}
         """
 
+rule mean_titer_sub_seasonal_distances:
+    input:
+        tree = rules.refine.output.tree,
+        alignments = translations,
+        distance_maps = rules.convert_titer_model_to_distance_map.output.distance_map,
+        date_annotations = rules.refine.output.node_data
+    params:
+        genes = gene_names,
+        attribute_names = "cTiterSub",
+        start_date = config["distance_start_date"],
+        end_date = config["distance_end_date"],
+        interval = 12,
+        seasons_away_to_compare = 2
+    output:
+        distances = "results/{replicate}/{region}_mean_titer_sub_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv",
+        pairwise_distances = "results/{replicate}/{region}_mean_strain_titer_sub_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv"
+    log: "logs/mean_titer_sub_seasonal_distances_{region}_{lineage}_{passage}_{segment}_{resolution}_{replicate}.txt"
+    conda: "envs/nextstrain.yaml"
+    shell:
+        """
+        python3 scripts/mean_seasonal_distances.py \
+            --tree {input.tree} \
+            --alignment {input.alignments} \
+            --gene-names {params.genes} \
+            --attribute-name {params.attribute_names} \
+            --map {input.distance_maps} \
+            --date-annotations {input.date_annotations} \
+            --start-date {params.start_date} \
+            --end-date {params.end_date} \
+            --interval {params.interval} \
+            --seasons-away-to-compare {params.seasons_away_to_compare} \
+            --output {output.distances} \
+            --strain-output {output.pairwise_distances} &> {log}
+        """
+
 rule mean_seasonal_lbi:
     input:
         tree = rules.refine.output.tree,
@@ -1056,6 +1093,23 @@ rule aggregate_mean_strain_seasonal_distances:
         tables=expand("results/{replicate}/{{region}}_mean_strain_seasonal_distances_{{lineage}}_{{segment}}_{{resolution}}.tsv", replicate=replicates),
     output:
         table="results/{region}_mean_strain_seasonal_distances_{lineage}_{segment}_{resolution}.tsv",
+    conda: "envs/nextstrain.yaml"
+    params:
+        replicates=list(replicates),
+    shell:
+        """
+        python3 scripts/concatenate_tables.py \
+            --tables {input.tables} \
+            --ids {params.replicates} \
+            --output {output.table}
+        """
+
+
+rule aggregate_mean_titer_sub_seasonal_distances:
+    input:
+        tables=expand("results/{replicate}/{{region}}_mean_titer_sub_seasonal_distances_{{lineage}}_{{passage}}_{{segment}}_{{resolution}}.tsv", replicate=replicates),
+    output:
+        table="results/{region}_mean_titer_sub_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv",
     conda: "envs/nextstrain.yaml"
     params:
         replicates=list(replicates),
