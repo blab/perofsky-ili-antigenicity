@@ -150,7 +150,9 @@ rule all:
         mean_distances = expand("results/{region}_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         mean_strain_distances = expand("results/{region}_mean_strain_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         mean_titer_sub_distances = expand("results/{region}_mean_titer_sub_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv", lineage=lineages, passage=passages, segment=segments, resolution=resolutions, region=regions),
+        mean_strain_titer_sub_distances = expand("results/{region}_mean_strain_titer_sub_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv.gz", lineage=lineages, passage=passages, segment=segments, resolution=resolutions, region=regions),
         mean_titer_tree_distances = expand("results/{region}_mean_titer_tree_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv", lineage=lineages, passage=passages, segment=segments, resolution=resolutions, region=regions),
+        mean_strain_titer_tree_distances = expand("results/{region}_mean_strain_titer_tree_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv.gz", lineage=lineages, passage=passages, segment=segments, resolution=resolutions, region=regions),
         auspice_tables = expand("auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         auspice = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_{replicate}.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions, replicate=replicates),
         auspice_frequencies = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_{replicate}_tip-frequencies.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions, replicate=replicates)
@@ -1154,6 +1156,23 @@ rule aggregate_mean_titer_sub_seasonal_distances:
         """
 
 
+rule aggregate_mean_strain_titer_sub_seasonal_distances:
+    input:
+        tables=expand("results/{replicate}/{{region}}_mean_strain_titer_sub_seasonal_distances_{{lineage}}_{{passage}}_{{segment}}_{{resolution}}.tsv", replicate=replicates),
+    output:
+        table="results/{region}_mean_strain_titer_sub_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv.gz",
+    conda: "envs/nextstrain.yaml"
+    params:
+        replicates=list(replicates),
+    shell:
+        """
+        python3 scripts/concatenate_tables.py \
+            --tables {input.tables} \
+            --ids {params.replicates} \
+            --output {output.table}
+        """
+
+
 rule aggregate_mean_titer_tree_seasonal_distances:
     input:
         tables=expand("results/{replicate}/{{region}}_mean_titer_tree_seasonal_distances_{{lineage}}_{{passage}}_{{segment}}_{{resolution}}.tsv", replicate=replicates),
@@ -1170,6 +1189,21 @@ rule aggregate_mean_titer_tree_seasonal_distances:
             --output {output.table}
         """
 
+rule aggregate_mean_strain_titer_tree_seasonal_distances:
+    input:
+        tables=expand("results/{replicate}/{{region}}_mean_strain_titer_tree_seasonal_distances_{{lineage}}_{{passage}}_{{segment}}_{{resolution}}.tsv", replicate=replicates),
+    output:
+        table="results/{region}_mean_strain_titer_tree_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv.gz",
+    conda: "envs/nextstrain.yaml"
+    params:
+        replicates=list(replicates),
+    shell:
+        """
+        python3 scripts/concatenate_tables.py \
+            --tables {input.tables} \
+            --ids {params.replicates} \
+            --output {output.table}
+        """
 
 rule aggregate_auspice_tables:
     input:
