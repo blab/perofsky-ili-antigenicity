@@ -321,7 +321,8 @@ rule filter_metadata:
         df = pd.read_csv(input.metadata, sep="\t")
         is_reference_strain = df["strain"].isin(references["strain"].values)
         has_unambiguous_year_month = ~df["date"].str.contains("XX-XX")
-        df[is_reference_strain | has_unambiguous_year_month].to_csv(output.metadata, sep="\t", header=True, index=False)
+        is_not_egg_passaged = ~df["strain"].str.endswith("-egg")
+        df[(is_reference_strain | has_unambiguous_year_month) & (is_not_egg_passaged)].to_csv(output.metadata, sep="\t", header=True, index=False)
 
 rule select_strains:
     input:
