@@ -145,6 +145,7 @@ def _get_distance_maps_by_lineage_and_segment(wildcards):
 
 rule all:
     input:
+        summarized_mean_distances=expand("results/{region}_summarized_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         mean_lbi = expand("results/{region}_mean_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         mean_strain_lbi = expand("results/{region}_strain_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         mean_distances = expand("results/{region}_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
@@ -1205,6 +1206,37 @@ rule aggregate_mean_strain_titer_tree_seasonal_distances:
             --ids {params.replicates} \
             --output {output.table}
         """
+
+
+rule aggregate_all_mean_distances:
+    input:
+        tables=["results/{region}_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv",
+                "results/{region}_mean_titer_sub_seasonal_distances_{lineage}_cell_{segment}_{resolution}.tsv",
+                "results/{region}_mean_titer_tree_seasonal_distances_{lineage}_cell_{segment}_{resolution}.tsv"],
+    output:
+        table="results/{region}_all_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv",
+    conda: "envs/nextstrain.yaml"
+    shell:
+        """
+        python3 scripts/concatenate_tables.py \
+            --tables {input.tables} \
+            --output {output.table}
+        """
+
+
+rule summarize_distances_across_replicates:
+    input:
+        distances="results/{region}_all_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv",
+    output:
+        distances="results/{region}_summarized_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv",
+    conda: "envs/nextstrain.yaml"
+    shell:
+        """
+        python3 scripts/summarize_distances_across_replicates.py \
+            --distances {input.distances} \
+            --output {output.distances}
+        """
+
 
 rule aggregate_auspice_tables:
     input:
