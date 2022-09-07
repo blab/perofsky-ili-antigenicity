@@ -395,6 +395,9 @@ rule align:
         alignment = "results/{replicate}/{region}/aligned_{lineage}_{segment}_{resolution}.fasta"
     conda: "envs/nextstrain.yaml"
     threads: 8
+    resources:
+        mem_mb=16000,
+        runtime="0:30:00",
     shell:
         """
         augur align \
@@ -414,6 +417,9 @@ rule tree:
         tree = "results/{replicate}/{region}/tree-raw_{lineage}_{segment}_{resolution}.nwk"
     conda: "envs/nextstrain.yaml"
     threads: 8
+    resources:
+        mem_mb=16000,
+        runtime="2:00:00",
     shell:
         """
         export AUGUR_RECURSION_LIMIT=10000 && augur tree \
@@ -445,6 +451,9 @@ rule refine:
         clock_std_dev = _get_clock_std_dev_by_wildcards
     conda: "envs/nextstrain.yaml"
     log: "logs/refine_{region}_{lineage}_{segment}_{resolution}_{replicate}.txt"
+    resources:
+        mem_mb=16000,
+        runtime="4:00:00",
     shell:
         """
         export AUGUR_RECURSION_LIMIT=10000 && augur refine \
@@ -472,6 +481,9 @@ rule ancestral:
     params:
         inference = "joint"
     conda: "envs/nextstrain.yaml"
+    resources:
+        mem_mb=4000,
+        runtime="0:15:00",
     shell:
         """
         augur ancestral \
@@ -507,6 +519,8 @@ rule reconstruct_translations:
     output:
         aa_alignment = "results/{replicate}/{region}/aa-seq_{lineage}_{segment}_{resolution}_{gene}.fasta"
     conda: "envs/nextstrain.yaml"
+    resources:
+        mem_mb=4000,
     shell:
         """
         augur reconstruct-sequences \
@@ -636,6 +650,9 @@ rule distances:
     output:
         distances = "results/{replicate}/{region}/distances_{lineage}_{segment}_{resolution}.json"
     conda: "envs/nextstrain.yaml"
+    resources:
+        mem_mb=8000,
+        runtime="0:10:00",
     shell:
         """
         augur distance \
