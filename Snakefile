@@ -17,7 +17,7 @@ wildcard_constraints:
     replicate="\d+"
 
 path_to_fauna = '../fauna'
-segments = ['ha']
+segments = ['ha', 'na']
 lineages = ['h3n2']
 resolutions = ['21y']
 passages = ['cell']
@@ -146,14 +146,14 @@ def _get_distance_maps_by_lineage_and_segment(wildcards):
 rule all:
     input:
         summarized_mean_distances=expand("results/{region}_summarized_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
-        mean_lbi = expand("results/{region}_mean_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
-        mean_strain_lbi = expand("results/{region}_strain_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
+        mean_lbi = expand("results/{region}_mean_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=["ha"], resolution=resolutions, region=regions),
+        mean_strain_lbi = expand("results/{region}_strain_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=["ha"], resolution=resolutions, region=regions),
         mean_distances = expand("results/{region}_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         mean_strain_distances = expand("results/{region}_mean_strain_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
-        mean_titer_sub_distances = expand("results/{region}_mean_titer_sub_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv", lineage=lineages, passage=passages, segment=segments, resolution=resolutions, region=regions),
-        mean_strain_titer_sub_distances = expand("results/{region}_mean_strain_titer_sub_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv.gz", lineage=lineages, passage=passages, segment=segments, resolution=resolutions, region=regions),
-        mean_titer_tree_distances = expand("results/{region}_mean_titer_tree_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv", lineage=lineages, passage=passages, segment=segments, resolution=resolutions, region=regions),
-        mean_strain_titer_tree_distances = expand("results/{region}_mean_strain_titer_tree_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv.gz", lineage=lineages, passage=passages, segment=segments, resolution=resolutions, region=regions),
+        mean_titer_sub_distances = expand("results/{region}_mean_titer_sub_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv", lineage=lineages, passage=passages, segment=["ha"], resolution=resolutions, region=regions),
+        mean_strain_titer_sub_distances = expand("results/{region}_mean_strain_titer_sub_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv.gz", lineage=lineages, passage=passages, segment=["ha"], resolution=resolutions, region=regions),
+        mean_titer_tree_distances = expand("results/{region}_mean_titer_tree_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv", lineage=lineages, passage=passages, segment=["ha"], resolution=resolutions, region=regions),
+        mean_strain_titer_tree_distances = expand("results/{region}_mean_strain_titer_tree_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv.gz", lineage=lineages, passage=passages, segment=["ha"], resolution=resolutions, region=regions),
         auspice_tables = expand("auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         auspice = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_{replicate}.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions, replicate=replicates),
         auspice_frequencies = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_{replicate}_tip-frequencies.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions, replicate=replicates)
@@ -327,14 +327,14 @@ rule filter_metadata:
 
 rule select_strains:
     input:
-        sequences = expand("results/filtered_{{lineage}}_{segment}.fasta", segment=segments),
-        metadata = expand("results/filtered_metadata_{{lineage}}_{segment}.tsv", segment=segments),
+        sequences = "results/filtered_{lineage}_{segment}.fasta",
+        metadata = "results/filtered_metadata_{lineage}_{segment}.tsv",
         titers = "data/{lineage}_cell_hi_titers.tsv",
         include = files.references
     output:
-        strains = "results/{replicate}/{region}/strains_{lineage}_{resolution}.txt",
+        strains = "results/{replicate}/{region}/strains_{lineage}_{segment}_{resolution}.txt",
     log:
-        "logs/strains_{region}_{lineage}_{resolution}_{replicate}.txt"
+        "logs/strains_{region}_{lineage}_{segment}_{resolution}_{replicate}.txt"
     params:
         start_date = config["start_date"],
         end_date = config["end_date"],
@@ -346,7 +346,7 @@ rule select_strains:
         python3 scripts/select_strains.py \
             --sequences {input.sequences} \
             --metadata {input.metadata} \
-            --segments {segments} \
+            --segments {wildcards.segment} \
             --include {input.include} \
             --lineage {wildcards.lineage} \
             --time-interval {params.start_date} {params.end_date} \
@@ -1208,6 +1208,7 @@ rule aggregate_mean_titer_tree_seasonal_distances:
             --output {output.table}
         """
 
+
 rule aggregate_mean_strain_titer_tree_seasonal_distances:
     input:
         tables=expand("results/{replicate}/{{region}}_mean_strain_titer_tree_seasonal_distances_{{lineage}}_{{passage}}_{{segment}}_{{resolution}}.tsv", replicate=replicates),
@@ -1225,11 +1226,22 @@ rule aggregate_mean_strain_titer_tree_seasonal_distances:
         """
 
 
+def get_distance_inputs_to_aggregate(wildcards):
+    if wildcards.segment == "ha":
+        return [
+            "results/{region}_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv",
+            "results/{region}_mean_titer_sub_seasonal_distances_{lineage}_cell_{segment}_{resolution}.tsv",
+            "results/{region}_mean_titer_tree_seasonal_distances_{lineage}_cell_{segment}_{resolution}.tsv",
+        ]
+    else:
+        return [
+            "results/{region}_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv",
+        ]
+
+
 rule aggregate_all_mean_distances:
     input:
-        tables=["results/{region}_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv",
-                "results/{region}_mean_titer_sub_seasonal_distances_{lineage}_cell_{segment}_{resolution}.tsv",
-                "results/{region}_mean_titer_tree_seasonal_distances_{lineage}_cell_{segment}_{resolution}.tsv"],
+        tables=get_distance_inputs_to_aggregate,
     output:
         table="results/{region}_all_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv",
     conda: "envs/nextstrain.yaml"
