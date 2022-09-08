@@ -59,11 +59,17 @@ if __name__ == "__main__":
             annotation_columns.append(key)
 
     # Save as a tab-delimited file.
+    columns_to_save = ["name"] + list(args.attributes) + annotation_columns
+    columns_to_save = [
+        column
+        for column in columns_to_save
+        if column in df.columns
+    ]
     df.to_csv(
         args.output,
         sep="\t",
         header=True,
         index=False,
-        columns=["name"] + list(args.attributes) + annotation_columns,
+        columns=columns_to_save,
         float_format="%.2f"
     )
