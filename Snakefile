@@ -1249,6 +1249,7 @@ rule aggregate_all_mean_distances:
         """
         python3 scripts/concatenate_tables.py \
             --tables {input.tables} \
+            --id-column filename \
             --output {output.table}
         """
 
