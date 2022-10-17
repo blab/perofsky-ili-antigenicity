@@ -37,6 +37,16 @@
       "type": "continuous"
     },
     {
+      "key": "krammer",
+      "title": "Krammer antigenic mutations",
+      "type": "continuous"
+    },
+    {
+      "key": "krammer_seasonal",
+      "title": "Krammer mutations since last season",
+      "type": "continuous"
+    },
+    {
       "key": "region",
       "title": "Region",
       "type": "categorical"

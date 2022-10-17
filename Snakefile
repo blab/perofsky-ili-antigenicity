@@ -145,15 +145,15 @@ def _get_distance_maps_by_lineage_and_segment(wildcards):
 
 rule all:
     input:
-        summarized_mean_distances=expand("results/{region}_summarized_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
-        mean_lbi = expand("results/{region}_mean_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=["ha"], resolution=resolutions, region=regions),
-        mean_strain_lbi = expand("results/{region}_strain_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=["ha"], resolution=resolutions, region=regions),
+        summarized_mean_distances=expand("distance_tables/{region}_summarized_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
+        mean_lbi = expand("distance_tables/{region}_mean_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=["ha"], resolution=resolutions, region=regions),
+        mean_strain_lbi = expand("distance_tables/{region}_strain_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv.gz", lineage=lineages, segment=["ha"], resolution=resolutions, region=regions),
         mean_distances = expand("results/{region}_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
-        mean_strain_distances = expand("results/{region}_mean_strain_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
+        mean_strain_distances = expand("distance_tables/{region}_mean_strain_seasonal_distances_{lineage}_{segment}_{resolution}.tsv.gz", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         mean_titer_sub_distances = expand("results/{region}_mean_titer_sub_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv", lineage=lineages, passage=passages, segment=["ha"], resolution=resolutions, region=regions),
-        mean_strain_titer_sub_distances = expand("results/{region}_mean_strain_titer_sub_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv.gz", lineage=lineages, passage=passages, segment=["ha"], resolution=resolutions, region=regions),
+        mean_strain_titer_sub_distances = expand("distance_tables/{region}_mean_strain_titer_sub_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv.gz", lineage=lineages, passage=passages, segment=["ha"], resolution=resolutions, region=regions),
         mean_titer_tree_distances = expand("results/{region}_mean_titer_tree_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv", lineage=lineages, passage=passages, segment=["ha"], resolution=resolutions, region=regions),
-        mean_strain_titer_tree_distances = expand("results/{region}_mean_strain_titer_tree_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv.gz", lineage=lineages, passage=passages, segment=["ha"], resolution=resolutions, region=regions),
+        mean_strain_titer_tree_distances = expand("distance_tables/{region}_mean_strain_titer_tree_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv.gz", lineage=lineages, passage=passages, segment=["ha"], resolution=resolutions, region=regions),
         auspice_tables = expand("auspice_tables/flu_seasonal_{lineage}_{segment}_{resolution}_{region}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         auspice = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_{replicate}.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions, replicate=replicates),
         auspice_frequencies = expand("auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_{replicate}_tip-frequencies.json", lineage=lineages, segment=segments, resolution=resolutions, region=regions, replicate=replicates)
@@ -1094,7 +1094,7 @@ rule aggregate_mean_seasonal_lbi:
     input:
         tables=expand("results/{replicate}/{{region}}_mean_seasonal_lbi_{{lineage}}_{{segment}}_{{resolution}}.tsv", replicate=replicates),
     output:
-        table="results/{region}_mean_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv",
+        table="distance_tables/{region}_mean_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv",
     conda: "envs/nextstrain.yaml"
     params:
         replicates=list(replicates),
@@ -1111,7 +1111,7 @@ rule aggregate_strain_seasonal_lbi:
     input:
         tables=expand("results/{replicate}/{{region}}_strain_seasonal_lbi_{{lineage}}_{{segment}}_{{resolution}}.tsv", replicate=replicates),
     output:
-        table="results/{region}_strain_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv",
+        table="distance_tables/{region}_strain_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv.gz",
     conda: "envs/nextstrain.yaml"
     params:
         replicates=list(replicates),
@@ -1145,7 +1145,7 @@ rule aggregate_mean_strain_seasonal_distances:
     input:
         tables=expand("results/{replicate}/{{region}}_mean_strain_seasonal_distances_{{lineage}}_{{segment}}_{{resolution}}.tsv", replicate=replicates),
     output:
-        table="results/{region}_mean_strain_seasonal_distances_{lineage}_{segment}_{resolution}.tsv",
+        table="distance_tables/{region}_mean_strain_seasonal_distances_{lineage}_{segment}_{resolution}.tsv.gz",
     conda: "envs/nextstrain.yaml"
     params:
         replicates=list(replicates),
@@ -1179,7 +1179,7 @@ rule aggregate_mean_strain_titer_sub_seasonal_distances:
     input:
         tables=expand("results/{replicate}/{{region}}_mean_strain_titer_sub_seasonal_distances_{{lineage}}_{{passage}}_{{segment}}_{{resolution}}.tsv", replicate=replicates),
     output:
-        table="results/{region}_mean_strain_titer_sub_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv.gz",
+        table="distance_tables/{region}_mean_strain_titer_sub_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv.gz",
     conda: "envs/nextstrain.yaml"
     params:
         replicates=list(replicates),
@@ -1213,7 +1213,7 @@ rule aggregate_mean_strain_titer_tree_seasonal_distances:
     input:
         tables=expand("results/{replicate}/{{region}}_mean_strain_titer_tree_seasonal_distances_{{lineage}}_{{passage}}_{{segment}}_{{resolution}}.tsv", replicate=replicates),
     output:
-        table="results/{region}_mean_strain_titer_tree_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv.gz",
+        table="distance_tables/{region}_mean_strain_titer_tree_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv.gz",
     conda: "envs/nextstrain.yaml"
     params:
         replicates=list(replicates),
@@ -1243,7 +1243,7 @@ rule aggregate_all_mean_distances:
     input:
         tables=get_distance_inputs_to_aggregate,
     output:
-        table="results/{region}_all_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv",
+        table="distance_tables/{region}_all_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv",
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -1256,9 +1256,9 @@ rule aggregate_all_mean_distances:
 
 rule summarize_distances_across_replicates:
     input:
-        distances="results/{region}_all_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv",
+        distances="distance_tables/{region}_all_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv",
     output:
-        distances="results/{region}_summarized_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv",
+        distances="distance_tables/{region}_summarized_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv",
     conda: "envs/nextstrain.yaml"
     shell:
         """
