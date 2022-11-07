@@ -146,8 +146,8 @@ def _get_distance_maps_by_lineage_and_segment(wildcards):
 rule all:
     input:
         summarized_mean_distances=expand("distance_tables/{region}_summarized_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
-        mean_lbi = expand("distance_tables/{region}_mean_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=["ha"], resolution=resolutions, region=regions),
-        mean_strain_lbi = expand("distance_tables/{region}_strain_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv.gz", lineage=lineages, segment=["ha"], resolution=resolutions, region=regions),
+        mean_lbi = expand("distance_tables/{region}_mean_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=["ha", "na"], resolution=resolutions, region=regions),
+        mean_strain_lbi = expand("distance_tables/{region}_strain_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv.gz", lineage=lineages, segment=["ha", "na"], resolution=resolutions, region=regions),
         mean_distances = expand("results/{region}_mean_seasonal_distances_{lineage}_{segment}_{resolution}.tsv", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         mean_strain_distances = expand("distance_tables/{region}_mean_strain_seasonal_distances_{lineage}_{segment}_{resolution}.tsv.gz", lineage=lineages, segment=segments, resolution=resolutions, region=regions),
         mean_titer_sub_distances = expand("results/{region}_mean_titer_sub_seasonal_distances_{lineage}_{passage}_{segment}_{resolution}.tsv", lineage=lineages, passage=passages, segment=["ha"], resolution=resolutions, region=regions),
