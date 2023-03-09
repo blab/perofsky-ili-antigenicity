@@ -934,7 +934,8 @@ rule mean_seasonal_lbi:
         interval = 12
     output:
         mean_lbi = "results/{replicate}/{region}_mean_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv",
-        lbi_by_strain = "results/{replicate}/{region}_strain_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv"
+        node_data = "results/{replicate}/{region}_seasonal_lbi_{lineage}_{segment}_{resolution}.json",
+        lbi_by_strain = "results/{replicate}/{region}_strain_seasonal_lbi_{lineage}_{segment}_{resolution}.tsv",
     log: "logs/mean_seasonal_lbi_{region}_{lineage}_{segment}_{resolution}_{replicate}.txt"
     conda: "envs/nextstrain.yaml"
     shell:
@@ -946,6 +947,7 @@ rule mean_seasonal_lbi:
             --end-date {params.end_date} \
             --interval {params.interval} \
             --output {output.mean_lbi} \
+            --output-node-data {output.node_data} \
             --strain-output {output.lbi_by_strain} &> {log}
         """
 
@@ -1012,7 +1014,8 @@ def _get_node_data_for_export(wildcards):
     inputs = [
         rules.refine.output.node_data,
         rules.ancestral.output.node_data,
-        rules.translate.output.node_data
+        rules.translate.output.node_data,
+        rules.mean_seasonal_lbi.output.node_data,
     ] + translations_jsons(wildcards)
 
     # Only run titer rules for segments with titer data.

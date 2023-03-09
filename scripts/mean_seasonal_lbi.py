@@ -6,6 +6,7 @@ from augur.lbi import calculate_LBI
 from augur.utils import annotate_parents_for_tree, read_node_data, write_json
 
 import Bio.Phylo
+from collections import defaultdict
 import pandas as pd
 
 from utils import get_seasons, get_nodes_by_season
@@ -20,6 +21,7 @@ if __name__ == "__main__":
     parser.add_argument("--interval", type=int, help="number of months per season", required=True)
     parser.add_argument("--output", help="tab-delimited file with mean LBI by season", required=True)
     parser.add_argument("--strain-output", help="tab-delimited file with LBI per strain and season", required=True)
+    parser.add_argument("--output-node-data", help="output LBI values per strain and season combination as a node data JSON")
 
     args = parser.parse_args()
 
@@ -75,3 +77,11 @@ if __name__ == "__main__":
     # Summarize LBI by season.
     lbi_by_season = df.groupby(["season_start", "season_end"])["lbi"].aggregate(["mean", "std", "count"]).reset_index()
     lbi_by_season.to_csv(args.output, sep="\t", float_format="%.4f", index=False)
+
+    # Optionally output a node data JSON.
+    if args.output_node_data:
+        node_data = defaultdict(dict)
+        for record in strain_and_season_lbi:
+            node_data[record["strain"]][f"lbi_{record['season_start']}_{record['season_end']}" = record["lbi"]
+
+        write_json({"nodes": node_data}, args.output_node_data, indent=None)
