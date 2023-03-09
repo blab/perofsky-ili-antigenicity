@@ -82,6 +82,6 @@ if __name__ == "__main__":
     if args.output_node_data:
         node_data = defaultdict(dict)
         for record in strain_and_season_lbi:
-            node_data[record["strain"]][f"lbi_{record['season_start']}_{record['season_end']}" = record["lbi"]
+            node_data[record["strain"]][f"lbi_{record['season_start']}_{record['season_end']}"] = record["lbi"]
 
         write_json({"nodes": node_data}, args.output_node_data, indent=None)
