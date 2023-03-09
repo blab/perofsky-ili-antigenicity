@@ -90,6 +90,126 @@
       "key": "cTiterSub_seasonal",
       "title": "Antigenic advance since last season",
       "type": "continuous"
+    },
+    {
+      "key": "lbi_1996-07-01_1997-07-01",
+      "title": "LBI (1996-07-01 to 1997-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_1997-07-01_1998-07-01",
+      "title": "LBI (1997-07-01 to 1998-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_1998-07-01_1999-07-01",
+      "title": "LBI (1998-07-01 to 1999-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_1999-07-01_2000-07-01",
+      "title": "LBI (1999-07-01 to 2000-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_2000-07-01_2001-07-01",
+      "title": "LBI (2000-07-01 to 2001-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_2001-07-01_2002-07-01",
+      "title": "LBI (2001-07-01 to 2002-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_2002-07-01_2003-07-01",
+      "title": "LBI (2002-07-01 to 2003-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_2003-07-01_2004-07-01",
+      "title": "LBI (2003-07-01 to 2004-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_2004-07-01_2005-07-01",
+      "title": "LBI (2004-07-01 to 2005-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_2005-07-01_2006-07-01",
+      "title": "LBI (2005-07-01 to 2006-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_2006-07-01_2007-07-01",
+      "title": "LBI (2006-07-01 to 2007-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_2007-07-01_2008-07-01",
+      "title": "LBI (2007-07-01 to 2008-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_2008-07-01_2009-07-01",
+      "title": "LBI (2008-07-01 to 2009-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_2009-07-01_2010-07-01",
+      "title": "LBI (2009-07-01 to 2010-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_2010-07-01_2011-07-01",
+      "title": "LBI (2010-07-01 to 2011-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_2011-07-01_2012-07-01",
+      "title": "LBI (2011-07-01 to 2012-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_2012-07-01_2013-07-01",
+      "title": "LBI (2012-07-01 to 2013-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_2013-07-01_2014-07-01",
+      "title": "LBI (2013-07-01 to 2014-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_2014-07-01_2015-07-01",
+      "title": "LBI (2014-07-01 to 2015-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_2015-07-01_2016-07-01",
+      "title": "LBI (2015-07-01 to 2016-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_2016-07-01_2017-07-01",
+      "title": "LBI (2016-07-01 to 2017-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_2017-07-01_2018-07-01",
+      "title": "LBI (2017-07-01 to 2018-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_2018-07-01_2019-07-01",
+      "title": "LBI (2018-07-01 to 2019-07-01)",
+      "type": "continuous"
+    },
+    {
+      "key": "lbi_2019-07-01_2020-07-01",
+      "title": "LBI (2019-07-01 to 2020-07-01)",
+      "type": "continuous"
     }
   ],
   "geo_resolutions": [
