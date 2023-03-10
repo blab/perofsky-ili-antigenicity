@@ -1015,6 +1015,7 @@ def _get_node_data_for_export(wildcards):
         rules.refine.output.node_data,
         rules.ancestral.output.node_data,
         rules.translate.output.node_data,
+        rules.traits.output.node_data,
         rules.mean_seasonal_lbi.output.node_data,
     ] + translations_jsons(wildcards)
 
@@ -1054,8 +1055,6 @@ rule export:
         node_data = _get_node_data_for_export
     output:
         auspice_main = "auspice/flu_seasonal_{lineage}_{segment}_{resolution}_{region}_{replicate}.json"
-    params:
-        color_by_fields = "date"
     conda: "envs/nextstrain.yaml"
     shell:
         """
@@ -1066,8 +1065,7 @@ rule export:
             --auspice-config {input.auspice_config} \
             --output {output.auspice_main} \
             --minify-json \
-            --include-root-sequence \
-            --color-by-metadata {params.color_by_fields}
+            --include-root-sequence
         """
 
 
