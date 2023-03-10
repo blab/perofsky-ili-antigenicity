@@ -43,6 +43,7 @@ if __name__ == "__main__":
 
     # Store the LBI per strain and season.
     strain_and_season_lbi = []
+    node_and_season_lbi = []
     for current_season_start, current_season_end in zip(seasons[:-1], seasons[1:]):
         current_season_key = (
             current_season_start.strftime("%Y-%m-%d"),
@@ -69,6 +70,13 @@ if __name__ == "__main__":
                     "season_end": current_season_key[1],
                     "lbi": node.lbi
                 })
+            else:
+                node_and_season_lbi.append({
+                    "strain": node.name,
+                    "season_start": current_season_key[0],
+                    "season_end": current_season_key[1],
+                    "lbi": node.lbi,
+                })
 
     # Export strain LBIs to a table.
     df = pd.DataFrame(strain_and_season_lbi)
@@ -81,7 +89,7 @@ if __name__ == "__main__":
     # Optionally output a node data JSON.
     if args.output_node_data:
         node_data = defaultdict(dict)
-        for record in strain_and_season_lbi:
+        for record in strain_and_season_lbi + node_and_season_lbi:
             node_data[record["strain"]][f"lbi_{record['season_start']}_{record['season_end']}"] = record["lbi"]
 
         write_json({"nodes": node_data}, args.output_node_data, indent=None)
