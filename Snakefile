@@ -21,7 +21,7 @@ segments = ['ha', 'na']
 lineages = ['h3n2']
 resolutions = ['21y']
 passages = ['cell']
-regions = ["global", "north-america"]
+regions = ["north-america"]
 frequency_regions = ['north_america', 'south_america', 'europe', 'china',
                      'southeast_asia', 'japan_korea', 'south_asia', 'africa']
 replicates = range(0, config["number_of_replicates"])
