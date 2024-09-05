@@ -1,6 +1,6 @@
 # perofsky-ili-antigenicity
 
-Seasonal flu analysis of antigenic evolution in ILI data
+Seasonal influenza analysis of antigenic evolution in ILI data for Perofsky et al. 2024 (https://doi.org/10.7554/eLife.91849.1).
 
 Run the flu analyses locally with no more than 4 cores.
 
